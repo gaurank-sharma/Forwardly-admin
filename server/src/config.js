@@ -3,7 +3,7 @@ dotenv.config();
 
 export const config = {
   port: Number(process.env.PORT || 5050),
-  clientOrigin: process.env.CLIENT_ORIGIN || "http://localhost:5173",
+  clientOrigin: process.env.CLIENT_ORIGIN || "https://forwardly-admin.vercel.app",
   jwtSecret: process.env.JWT_SECRET || "dev-secret-change-me",
   mongoUri: process.env.MONGODB_URI || "",
   admin: {
