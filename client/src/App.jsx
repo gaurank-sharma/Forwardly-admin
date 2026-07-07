@@ -14,6 +14,11 @@ function Protected({ children }) {
   return children;
 }
 
+function AdminOnly({ children }) {
+  const { user } = useAuth();
+  return user?.role === "admin" ? children : <Navigate to="/" replace />;
+}
+
 export default function App() {
   return (
     <Routes>
@@ -27,8 +32,8 @@ export default function App() {
       >
         <Route path="/" element={<Dashboard />} />
         <Route path="/leads" element={<Leads />} />
-        <Route path="/agents" element={<Agents />} />
-        <Route path="/config" element={<DayConfig />} />
+        <Route path="/agents" element={<AdminOnly><Agents /></AdminOnly>} />
+        <Route path="/config" element={<AdminOnly><DayConfig /></AdminOnly>} />
       </Route>
       <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>

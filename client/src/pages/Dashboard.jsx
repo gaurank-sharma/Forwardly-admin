@@ -47,10 +47,10 @@ export default function Dashboard() {
 
   return (
     <div>
-      <div className="mb-6 flex items-center justify-between">
+      <div className="mb-6 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <h1 className="text-2xl font-bold">Dashboard</h1>
-          <p className="text-sm text-gray-500">{ov.weekday} · {ov.today} · {ov.workingDaysThisMonth} working days this month · {ov.activeDays} active days</p>
+          <p className="text-sm text-gray-500">{ov.weekday} · {ov.today} · {ov.workingDaysThisMonth} working days · {ov.activeDays} active days</p>
         </div>
         {user.role === "admin" && (
           <div className="flex gap-2">

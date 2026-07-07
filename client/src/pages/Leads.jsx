@@ -48,9 +48,9 @@ export default function Leads() {
           <h1 className="text-2xl font-bold">Leads</h1>
           <p className="text-sm text-gray-500">{total} leads · only <b>hot</b> are auto-assigned</p>
         </div>
-        <form onSubmit={onSearch} className="relative">
+        <form onSubmit={onSearch} className="relative w-full sm:w-auto">
           <Search size={16} className="absolute left-3 top-2.5 text-gray-400" />
-          <input className="input pl-9" style={{ width: 260 }} placeholder="Search name / phone…" value={q} onChange={(e) => setQ(e.target.value)} />
+          <input className="input w-full pl-9 sm:w-64" placeholder="Search name / phone…" value={q} onChange={(e) => setQ(e.target.value)} />
         </form>
       </div>
 
@@ -74,8 +74,8 @@ export default function Leads() {
         )}
       </div>
 
-      <div className="card overflow-hidden">
-        <table className="w-full text-sm">
+      <div className="card overflow-x-auto">
+        <table className="w-full min-w-[680px] text-sm">
           <thead className="bg-gray-50 text-left text-xs uppercase text-gray-400">
             <tr>
               <th className="px-4 py-3">Business</th><th>Type</th><th>Phone</th><th>Status</th><th>Assigned</th><th>Report</th>
