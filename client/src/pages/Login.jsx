@@ -42,7 +42,7 @@ export default function Login() {
         <button disabled={busy} className="btn btn-primary w-full justify-center">
           {busy ? "Signing in…" : "Sign in"}
         </button>
-        <p className="mt-4 text-center text-xs text-gray-400">admin@forwardly.in · agents use their email / agent123</p>
+        <p className="mt-4 text-center text-xs text-gray-400">Use the credentials shared by your admin.</p>
       </form>
     </div>
   );

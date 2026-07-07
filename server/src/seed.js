@@ -3,6 +3,7 @@ import { connectDB } from "./db.js";
 import { config } from "./config.js";
 import User from "./models/User.js";
 import DayConfig from "./models/DayConfig.js";
+import { genStrongPassword } from "./services/password.js";
 
 /**
  * Seeds the super-admin, the 3 agents, and a default weekday→pincode→industry
@@ -19,19 +20,24 @@ async function seed() {
     { upsert: true }
   );
 
-  // agents
+  // agents — created with STRONG unique passwords (printed once)
   const agents = [
     { name: "Gaurank Sharma", email: "gaurank@forwardly.in" },
     { name: "Vikas", email: "vikas@forwardly.in" },
     { name: "Abhinav", email: "abhinav@forwardly.in" },
   ];
+  const created = [];
   for (const a of agents) {
-    const hash = await bcrypt.hash("agent123", 10);
-    await User.updateOne(
-      { email: a.email },
-      { $setOnInsert: { name: a.name, email: a.email, passwordHash: hash, role: "agent", active: true } },
-      { upsert: true }
-    );
+    if (await User.findOne({ email: a.email })) continue;
+    const pw = genStrongPassword();
+    const hash = await bcrypt.hash(pw, 10);
+    await User.create({ name: a.name, email: a.email, passwordHash: hash, role: "agent", active: true });
+    created.push({ email: a.email, pw });
+  }
+  if (created.length) {
+    console.log("\n[seed] agent credentials (save these):");
+    created.forEach((c) => console.log("  " + c.email.padEnd(26) + c.pw));
+    console.log("[seed] to (re)set later: npm run passwords\n");
   }
 
   // weekday plan (0=Sun..6=Sat) — Gurgaon example pincodes
@@ -48,7 +54,6 @@ async function seed() {
   }
 
   console.log("[seed] done. Admin:", config.admin.email, "/", config.admin.password);
-  console.log("[seed] agents password: agent123");
   process.exit(0);
 }
 
