@@ -7,8 +7,8 @@ export default defineConfig({
   server: {
     port: 5173,
     proxy: {
-      "/api": "http://localhost:5050",
-      "/uploads": "http://localhost:5050",
+      "/api": "https://forwardly-admin.onrender.com",
+      "/uploads": "https://forwardly-admin.onrender.com",
     },
   },
 });
