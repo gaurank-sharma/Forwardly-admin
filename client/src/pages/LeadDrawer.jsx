@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { X, Phone, Globe, MapPin, Star, FileText, RefreshCw, Paperclip, PhoneCall, Ban, RotateCcw } from "lucide-react";
-import api from "../lib/api";
+import api, { reportUrl } from "../lib/api";
 import { useAuth } from "../lib/auth.jsx";
 
 const STATUSES = ["new", "assigned", "contacted", "interested", "follow_up", "won", "rejected"];
@@ -95,7 +95,7 @@ export default function LeadDrawer({ id, agents = [], onClose, onChange }) {
           <div className="mb-2 flex items-center justify-between">
             <h3 className="text-sm font-bold">Research & pitch</h3>
             <div className="flex gap-2">
-              {lead.research?.pdfUrl && <a href={lead.research.pdfUrl} target="_blank" rel="noreferrer" className="btn btn-dark px-3 py-1.5 text-xs"><FileText size={13} /> PDF</a>}
+              <a href={reportUrl(lead._id)} target="_blank" rel="noreferrer" className="btn btn-dark px-3 py-1.5 text-xs"><FileText size={13} /> PDF</a>
               <button onClick={regen} className="btn btn-ghost px-3 py-1.5 text-xs"><RefreshCw size={13} /> Regenerate</button>
             </div>
           </div>

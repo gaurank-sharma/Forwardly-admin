@@ -4,7 +4,6 @@ import IngestRun from "../models/IngestRun.js";
 import { harvestLeads } from "../services/google.js";
 import { classify } from "../services/classify.js";
 import { generateResearch } from "../services/research.js";
-import { generateReportPdf } from "../services/pdf.js";
 import { assignHotLeads } from "../services/assign.js";
 import { config } from "../config.js";
 import { ymd, weekdayOf } from "../services/util.js";
@@ -51,16 +50,7 @@ export async function runIngest({ date = new Date() } = {}) {
       }
     }
 
-    // pitch PDF for every real hot lead
-    for (const lead of hotDocs) {
-      try {
-        const url = await generateReportPdf(lead);
-        lead.research = { ...(lead.research?.toObject?.() || lead.research), pdfUrl: url };
-        await lead.save();
-      } catch (e) {
-        console.warn("[pdf] failed for", lead.name, e.message);
-      }
-    }
+    // (pitch PDFs are generated on-demand via GET /leads/:id/report.pdf)
 
     if (hot < config.minHot) {
       console.warn(`[ingest ${dateStr}] only ${hot} real hot leads found (target ${config.minHot}). ` +

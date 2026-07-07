@@ -8,7 +8,8 @@ export function sign(user) {
 
 export async function auth(req, res, next) {
   const header = req.headers.authorization || "";
-  const token = header.startsWith("Bearer ") ? header.slice(7) : null;
+  // accept token via header OR ?token= (for direct file/PDF links opened in a tab)
+  const token = header.startsWith("Bearer ") ? header.slice(7) : req.query.token || null;
   if (!token) return res.status(401).json({ error: "No token" });
   try {
     const payload = jwt.verify(token, config.jwtSecret);

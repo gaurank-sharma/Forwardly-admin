@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { Phone, FileText, Search } from "lucide-react";
-import api from "../lib/api";
+import api, { reportUrl } from "../lib/api";
 import { useAuth } from "../lib/auth.jsx";
 import LeadDrawer from "./LeadDrawer.jsx";
 
@@ -100,7 +100,7 @@ export default function Leads() {
                 <td className="text-gray-600">{l.status}</td>
                 <td className="text-gray-500">{l.assignedTo?.name || l.assignedToName || "—"}</td>
                 <td onClick={(e) => e.stopPropagation()}>
-                  {l.research?.pdfUrl ? <a href={l.research.pdfUrl} target="_blank" rel="noreferrer" className="text-[#6d8b00]"><FileText size={16} /></a> : "—"}
+                  {l.classification !== "cold" ? <a href={reportUrl(l._id)} target="_blank" rel="noreferrer" className="text-[#6d8b00]"><FileText size={16} /></a> : "—"}
                 </td>
               </tr>
             ))}

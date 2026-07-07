@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { Flame, FileText, Play, RefreshCw, Phone } from "lucide-react";
-import api from "../lib/api";
+import api, { reportUrl } from "../lib/api";
 import { useAuth } from "../lib/auth.jsx";
 
 function Stat({ label, value, tone }) {
@@ -119,11 +119,9 @@ export default function Dashboard() {
                   </td>
                   <td className="text-gray-500">{l.assignedTo?.name || l.assignedToName || "—"}</td>
                   <td>
-                    {l.research?.pdfUrl ? (
-                      <a href={l.research.pdfUrl} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 rounded-lg bg-[#0a0a0b] px-2.5 py-1 text-xs font-semibold text-white">
-                        <FileText size={13} /> Report
-                      </a>
-                    ) : "—"}
+                    <a href={reportUrl(l._id)} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 rounded-lg bg-[#0a0a0b] px-2.5 py-1 text-xs font-semibold text-white">
+                      <FileText size={13} /> Report
+                    </a>
                   </td>
                 </tr>
               ))}

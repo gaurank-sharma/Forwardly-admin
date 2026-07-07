@@ -19,4 +19,8 @@ api.interceptors.response.use(
   }
 );
 
+/** Direct link to a lead's live-generated PDF report (token in query for tab open). */
+export const reportUrl = (id) =>
+  `/api/leads/${id}/report.pdf?token=${localStorage.getItem("fl_token") || ""}`;
+
 export default api;

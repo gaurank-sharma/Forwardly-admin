@@ -6,6 +6,7 @@ import Lead from "../models/Lead.js";
 import User from "../models/User.js";
 import { auth, requireAdmin } from "../middleware/auth.js";
 import { generateResearch } from "../services/research.js";
+import { streamReport } from "../services/pdf.js";
 import { ymd } from "../services/util.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -56,6 +57,18 @@ r.get("/:id", async (req, res) => {
   const lead = await Lead.findOne(scopeFor(req, { _id: req.params.id })).populate("assignedTo", "name");
   if (!lead) return res.status(404).json({ error: "Not found" });
   res.json(lead);
+});
+
+// on-demand PDF pitch report (generated live from DB — no stored files).
+// opened directly in a tab, so token is passed via ?token= (see auth middleware)
+r.get("/:id/report.pdf", async (req, res) => {
+  const lead = await Lead.findOne(scopeFor(req, { _id: req.params.id }));
+  if (!lead) return res.status(404).send("Not found");
+  if (!lead.research?.summary) {
+    lead.research = generateResearch(lead);
+    await lead.save();
+  }
+  streamReport(lead, res);
 });
 
 // CRM update: status / reason / response / recall
