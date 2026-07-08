@@ -9,6 +9,7 @@ export default function LeadDrawer({ id, agents = [], onClose, onChange }) {
   const { user } = useAuth();
   const [lead, setLead] = useState(null);
   const [saving, setSaving] = useState(false);
+  const [pitchLang, setPitchLang] = useState("en");
   const fileRef = useRef(null);
 
   const load = async () => {
@@ -105,7 +106,29 @@ export default function LeadDrawer({ id, agents = [], onClose, onChange }) {
               {lead.research.painPoints.map((p, i) => <li key={i}>{p}</li>)}
             </ul>
           )}
-          {lead.research?.pitch && <pre className="mt-3 whitespace-pre-wrap rounded-lg bg-white p-3 text-sm text-gray-700">{lead.research.pitch}</pre>}
+          {(lead.research?.pitch || lead.research?.pitchHi) && (
+            <div className="mt-3">
+              <div className="mb-2 flex gap-1.5">
+                <button
+                  onClick={() => setPitchLang("en")}
+                  className={`rounded-full px-3 py-1 text-xs font-bold ${pitchLang === "en" ? "bg-[#0a0a0b] text-white" : "border border-gray-200 bg-white text-gray-500"}`}
+                >
+                  English
+                </button>
+                <button
+                  onClick={() => setPitchLang("hi")}
+                  className={`rounded-full px-3 py-1 text-xs font-bold ${pitchLang === "hi" ? "bg-[#0a0a0b] text-white" : "border border-gray-200 bg-white text-gray-500"}`}
+                >
+                  हिंदी
+                </button>
+              </div>
+              <pre className="whitespace-pre-wrap rounded-lg bg-white p-3 text-sm text-gray-700">
+                {pitchLang === "en"
+                  ? lead.research?.pitch || "—"
+                  : lead.research?.pitchHi || "Hindi script not generated yet — click Regenerate."}
+              </pre>
+            </div>
+          )}
         </div>
 
         {/* CRM form */}

@@ -4,20 +4,20 @@ import IngestRun from "../models/IngestRun.js";
 import { harvestLeads } from "../services/google.js";
 import { classify } from "../services/classify.js";
 import { generateResearch } from "../services/research.js";
-import { assignHotLeads } from "../services/assign.js";
-import { config } from "../config.js";
+import { assignHotLeads, hotLeadTarget } from "../services/assign.js";
 import { ymd, weekdayOf } from "../services/util.js";
 
 /**
  * Nightly DAG: for today's weekday configs, harvest REAL leads (widening the
- * Google search until ≥ MIN_HOT website-less businesses are found), classify,
- * generate pitch + PDF for hot leads, dedup-insert, then auto-assign hot leads.
- * No fabricated/sample leads. Idempotent via placeId dedup.
+ * Google search until ≥ (active agents x 10) website-less businesses are found),
+ * classify, generate pitch + PDF for hot leads, dedup-insert, then auto-assign
+ * hot leads. No fabricated/sample leads. Idempotent via placeId dedup.
  */
 export async function runIngest({ date = new Date() } = {}) {
   const dateStr = ymd(date);
   const weekday = weekdayOf(date);
   const configs = await DayConfig.find({ weekday, active: true });
+  const minHot = await hotLeadTarget();
 
   const run = await IngestRun.create({
     date: dateStr,
@@ -32,7 +32,7 @@ export async function runIngest({ date = new Date() } = {}) {
     for (const cfg of configs) {
       const res = await harvestLeads(
         { pincode: cfg.pincode, city: cfg.city, industry: cfg.industry, keyword: cfg.keyword },
-        config.minHot
+        minHot
       );
       source = res.source;
       fetched += res.leads.length;
@@ -52,8 +52,8 @@ export async function runIngest({ date = new Date() } = {}) {
 
     // (pitch PDFs are generated on-demand via GET /leads/:id/report.pdf)
 
-    if (hot < config.minHot) {
-      console.warn(`[ingest ${dateStr}] only ${hot} real hot leads found (target ${config.minHot}). ` +
+    if (hot < minHot) {
+      console.warn(`[ingest ${dateStr}] only ${hot} real hot leads found (target ${minHot}). ` +
         `Widen the day plan (more pincodes / website-less-prone industries).`);
     }
 

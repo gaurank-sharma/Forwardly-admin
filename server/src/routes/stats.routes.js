@@ -12,37 +12,66 @@ r.use(auth);
 r.get("/overview", async (req, res) => {
   const today = ymd();
   const mine = req.user.role === "admin" ? {} : { assignedTo: req.user._id };
+  const count = (extra) => [{ $match: { ...mine, ...extra } }, { $count: "n" }];
 
-  const [hot, medium, cold, assignedToday, unassignedHot, pendingRecall, won] = await Promise.all([
-    Lead.countDocuments({ ...mine, classification: "hot" }),
-    Lead.countDocuments({ ...mine, classification: "medium" }),
-    Lead.countDocuments({ ...mine, classification: "cold" }),
-    Lead.countDocuments({ ...mine, assignedDate: today }),
-    Lead.countDocuments({ classification: "hot", assignedTo: null, rejected: false }),
-    Lead.countDocuments({ ...mine, needsRecall: true }),
-    Lead.countDocuments({ ...mine, status: "won" }),
+  // one round trip for all the scoped counts (was 7 sequential-ish queries)
+  const [facetRes, activeDates, agents, perAgentAgg, runs] = await Promise.all([
+    Lead.aggregate([
+      {
+        $facet: {
+          hot: count({ classification: "hot" }),
+          medium: count({ classification: "medium" }),
+          cold: count({ classification: "cold" }),
+          assignedToday: count({ assignedDate: today }),
+          unassignedHot: [{ $match: { classification: "hot", assignedTo: null, rejected: false } }, { $count: "n" }],
+          pendingRecall: count({ needsRecall: true }),
+          won: count({ status: "won" }),
+        },
+      },
+    ]),
+    Lead.distinct("assignedDate"),
+    User.find({ role: "agent" }).sort({ createdAt: 1 }),
+    // per-agent today/total counts in a single grouped query (was 2 queries x N agents)
+    Lead.aggregate([
+      { $match: { assignedTo: { $ne: null } } },
+      {
+        $group: {
+          _id: "$assignedTo",
+          total: { $sum: 1 },
+          today: { $sum: { $cond: [{ $eq: ["$assignedDate", today] }, 1, 0] } },
+        },
+      },
+    ]),
+    IngestRun.find().sort({ createdAt: -1 }).limit(7),
   ]);
 
-  // active days = distinct assignedDate values (data-driven working days)
-  const activeDays = (await Lead.distinct("assignedDate")).filter(Boolean).length;
+  const n = (arr) => arr?.[0]?.n || 0;
+  const f = facetRes[0] || {};
+  const counts = {
+    hot: n(f.hot),
+    medium: n(f.medium),
+    cold: n(f.cold),
+    assignedToday: n(f.assignedToday),
+    unassignedHot: n(f.unassignedHot),
+    pendingRecall: n(f.pendingRecall),
+    won: n(f.won),
+  };
 
-  const agents = await User.find({ role: "agent" });
-  const perAgent = await Promise.all(
-    agents.map(async (a) => ({
-      id: a._id,
-      name: a.name,
-      active: a.active,
-      today: await Lead.countDocuments({ assignedTo: a._id, assignedDate: today }),
-      total: await Lead.countDocuments({ assignedTo: a._id }),
-    }))
-  );
+  const activeDays = activeDates.filter(Boolean).length;
 
-  const runs = await IngestRun.find().sort({ createdAt: -1 }).limit(7);
+  const byAgent = new Map(perAgentAgg.map((p) => [String(p._id), p]));
+  const perAgent = agents.map((a) => ({
+    id: a._id,
+    name: a.name,
+    active: a.active,
+    today: byAgent.get(String(a._id))?.today || 0,
+    total: byAgent.get(String(a._id))?.total || 0,
+  }));
 
   res.json({
     today,
     weekday: WEEKDAYS[new Date().getDay()],
-    counts: { hot, medium, cold, assignedToday, unassignedHot, pendingRecall, won },
+    counts,
     workingDaysThisMonth: workingDaysThisMonth(),
     activeDays,
     agents: perAgent,

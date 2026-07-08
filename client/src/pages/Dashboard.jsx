@@ -98,27 +98,27 @@ export default function Dashboard() {
           <Link to="/leads" className="text-sm font-semibold text-[#6d8b00]">Open CRM →</Link>
         </div>
         <div className="overflow-x-auto">
-          <table className="w-full text-sm">
+          <table className="w-full min-w-[700px] text-sm">
             <thead>
               <tr className="border-b text-left text-xs uppercase text-gray-400">
-                <th className="py-2">Business</th><th>Industry</th><th>Phone</th><th>Assigned</th><th>Pitch</th>
+                <th className="py-2 pr-3">Business</th><th className="px-3 py-2">Industry</th><th className="whitespace-nowrap px-3 py-2">Phone</th><th className="whitespace-nowrap px-3 py-2">Assigned</th><th className="px-3 py-2">Pitch</th>
               </tr>
             </thead>
             <tbody>
               {hot.map((l) => (
                 <tr key={l._id} className="border-b border-gray-50">
-                  <td className="py-2.5 font-medium">
+                  <td className="py-2.5 pr-3 font-medium">
                     {l.name}
                     {(l.toppedUp || l.placeId?.startsWith("topup:")) && (
                       <span className="ml-2 rounded bg-amber-100 px-1.5 py-0.5 text-[10px] font-bold uppercase text-amber-700">Sample</span>
                     )}
                   </td>
-                  <td className="text-gray-500">{l.industry}</td>
-                  <td>
+                  <td className="px-3 py-2.5 text-gray-500">{l.industry}</td>
+                  <td className="whitespace-nowrap px-3 py-2.5">
                     <a href={`tel:${l.phone}`} className="inline-flex items-center gap-1 text-[#6d8b00]"><Phone size={13} /> {l.phone}</a>
                   </td>
-                  <td className="text-gray-500">{l.assignedTo?.name || l.assignedToName || "—"}</td>
-                  <td>
+                  <td className="whitespace-nowrap px-3 py-2.5 text-gray-500">{l.assignedTo?.name || l.assignedToName || "—"}</td>
+                  <td className="px-3 py-2.5">
                     <a href={reportUrl(l._id)} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 rounded-lg bg-[#0a0a0b] px-2.5 py-1 text-xs font-semibold text-white">
                       <FileText size={13} /> Report
                     </a>

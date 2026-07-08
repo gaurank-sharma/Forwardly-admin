@@ -69,7 +69,8 @@ const leadSchema = new mongoose.Schema(
     // AI/template research + pitch
     research: {
       summary: { type: String, default: "" },
-      pitch: { type: String, default: "" },
+      pitch: { type: String, default: "" }, // English call script
+      pitchHi: { type: String, default: "" }, // Hindi call script
       painPoints: { type: [String], default: [] },
       pdfUrl: { type: String, default: "" },
       generatedAt: Date,
@@ -95,5 +96,9 @@ const leadSchema = new mongoose.Schema(
   },
   { timestamps: true }
 );
+
+// compound indexes for the hot paths: assignment pool lookup + per-agent day counts
+leadSchema.index({ classification: 1, assignedTo: 1, rejected: 1 });
+leadSchema.index({ assignedTo: 1, assignedDate: 1 });
 
 export default mongoose.model("Lead", leadSchema);

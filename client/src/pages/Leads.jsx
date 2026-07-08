@@ -75,10 +75,10 @@ export default function Leads() {
       </div>
 
       <div className="card overflow-x-auto">
-        <table className="w-full min-w-[680px] text-sm">
+        <table className="w-full min-w-[760px] text-sm">
           <thead className="bg-gray-50 text-left text-xs uppercase text-gray-400">
             <tr>
-              <th className="px-4 py-3">Business</th><th>Type</th><th>Phone</th><th>Status</th><th>Assigned</th><th>Report</th>
+              <th className="px-4 py-3">Business</th><th className="px-3 py-3">Type</th><th className="whitespace-nowrap px-3 py-3">Phone</th><th className="px-3 py-3">Status</th><th className="whitespace-nowrap px-3 py-3">Assigned</th><th className="px-3 py-3">Report</th>
             </tr>
           </thead>
           <tbody>
@@ -93,13 +93,13 @@ export default function Leads() {
                   </div>
                   <div className="text-xs text-gray-400">{l.industry} · {l.pincode}{l.needsRecall ? " · 🔁 recall" : ""}</div>
                 </td>
-                <td><span className={`rounded-full px-2 py-0.5 text-xs font-bold ${clsBadge[l.classification]}`}>{l.classification}</span></td>
-                <td onClick={(e) => e.stopPropagation()}>
+                <td className="px-3 py-3"><span className={`rounded-full px-2 py-0.5 text-xs font-bold ${clsBadge[l.classification]}`}>{l.classification}</span></td>
+                <td className="whitespace-nowrap px-3 py-3" onClick={(e) => e.stopPropagation()}>
                   <a href={`tel:${l.phone}`} className="inline-flex items-center gap-1 text-[#6d8b00]"><Phone size={13} /> {l.phone || "—"}</a>
                 </td>
-                <td className="text-gray-600">{l.status}</td>
-                <td className="text-gray-500">{l.assignedTo?.name || l.assignedToName || "—"}</td>
-                <td onClick={(e) => e.stopPropagation()}>
+                <td className="px-3 py-3 text-gray-600">{l.status}</td>
+                <td className="whitespace-nowrap px-3 py-3 text-gray-500">{l.assignedTo?.name || l.assignedToName || "—"}</td>
+                <td className="px-3 py-3" onClick={(e) => e.stopPropagation()}>
                   {l.classification !== "cold" ? <a href={reportUrl(l._id)} target="_blank" rel="noreferrer" className="text-[#6d8b00]"><FileText size={16} /></a> : "—"}
                 </td>
               </tr>

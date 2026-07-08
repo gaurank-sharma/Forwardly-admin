@@ -3,6 +3,18 @@ import Lead from "../models/Lead.js";
 import { config } from "../config.js";
 import { ymd } from "./util.js";
 
+const HOT_LEADS_PER_AGENT = Number(process.env.HOT_LEADS_PER_AGENT || 10);
+
+/**
+ * How many hot leads the nightly ingest should aim for today: active agents x
+ * HOT_LEADS_PER_AGENT (default 10), so every on-duty agent gets a full quota.
+ * Falls back to config.minHot when there are no active agents yet.
+ */
+export async function hotLeadTarget() {
+  const activeAgents = await User.countDocuments({ role: "agent", active: true });
+  return activeAgents > 0 ? activeAgents * HOT_LEADS_PER_AGENT : config.minHot;
+}
+
 /**
  * Assign unassigned HOT leads to ON-duty agents, round-robin, respecting the
  * daily cap. Medium/cold are never assigned. A lead already assigned stays put
