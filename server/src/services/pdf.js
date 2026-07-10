@@ -63,12 +63,12 @@ function drawReport(doc, lead) {
 
   footer(doc);
 
-  // Hindi script gets its own page, in its own font — kept separate rather than
-  // interleaved so an agent can read either script straight through.
+  // Hinglish script gets its own page — kept separate rather than interleaved
+  // so an agent can read either script straight through.
   doc.addPage();
-  doc.fillColor(INK).fontSize(12).font("Devanagari-Bold").text("कॉल पिच — हिंदी (मिस्ट्री-शॉपर)", 48, 60);
-  doc.fillColor("#374151").fontSize(10).font("Devanagari").text(
-    lead.research?.pitchHi || "Hindi script not generated yet — click Regenerate.",
+  doc.fillColor(INK).fontSize(12).font("Helvetica-Bold").text("Call pitch — Hinglish (mystery-shopper)", 48, 60);
+  doc.fillColor("#374151").fontSize(10).font("Helvetica").text(
+    lead.research?.pitchHi || "Hinglish script not generated yet — click Regenerate.",
     48, doc.y + 8,
     { width: doc.page.width - 96, lineGap: 4 }
   );

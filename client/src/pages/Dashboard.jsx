@@ -42,6 +42,21 @@ export default function Dashboard() {
     }
   };
 
+  const [regen, setRegen] = useState(false);
+  const regenAll = async () => {
+    if (!confirm("Regenerate the pitch/script for ALL leads with the latest template?")) return;
+    setRegen(true);
+    try {
+      const { data } = await api.post("/leads/research/regenerate-all");
+      await load();
+      alert(`Updated pitches for ${data.updated} leads.`);
+    } catch (e) {
+      alert(e.response?.data?.error || "Regenerate failed");
+    } finally {
+      setRegen(false);
+    }
+  };
+
   if (!ov) return <div className="text-sm text-gray-500">Loading…</div>;
   const c = ov.counts;
 
@@ -53,8 +68,11 @@ export default function Dashboard() {
           <p className="text-sm text-gray-500">{ov.weekday} · {ov.today} · {ov.workingDaysThisMonth} working days · {ov.activeDays} active days</p>
         </div>
         {user.role === "admin" && (
-          <div className="flex gap-2">
+          <div className="flex flex-wrap gap-2">
             <button className="btn btn-ghost" onClick={load}><RefreshCw size={16} /> Refresh</button>
+            <button className="btn btn-ghost" onClick={regenAll} disabled={regen}>
+              <RefreshCw size={16} /> {regen ? "Updating…" : "Update all pitches"}
+            </button>
             <button className="btn btn-dark" onClick={runNow} disabled={running}>
               <Play size={16} /> {running ? "Running…" : "Run ingest now"}
             </button>

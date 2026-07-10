@@ -164,6 +164,18 @@ r.post("/:id/research", async (req, res) => {
   res.json(lead);
 });
 
+// admin: regenerate pitch/research for ALL leads (run after a script update)
+r.post("/research/regenerate-all", requireAdmin, async (req, res) => {
+  const leads = await Lead.find({});
+  let updated = 0;
+  for (const lead of leads) {
+    lead.research = generateResearch(lead);
+    await lead.save();
+    updated += 1;
+  }
+  res.json({ ok: true, updated });
+});
+
 // admin: manual (re)assign
 r.post("/:id/assign", requireAdmin, async (req, res) => {
   const lead = await Lead.findById(req.params.id);

@@ -124,13 +124,13 @@ export default function LeadDrawer({ id, agents = [], onClose, onChange }) {
                   onClick={() => setPitchLang("hi")}
                   className={`rounded-full px-3 py-1 text-xs font-bold ${pitchLang === "hi" ? "bg-[#0a0a0b] text-white" : "border border-gray-200 bg-white text-gray-500"}`}
                 >
-                  हिंदी
+                  Hinglish
                 </button>
               </div>
               <pre className="whitespace-pre-wrap rounded-lg bg-white p-3 text-sm text-gray-700">
                 {pitchLang === "en"
                   ? lead.research?.pitch || "—"
-                  : lead.research?.pitchHi || "Hindi script not generated yet — click Regenerate."}
+                  : lead.research?.pitchHi || "Hinglish script not generated yet — click Regenerate."}
               </pre>
             </div>
           )}

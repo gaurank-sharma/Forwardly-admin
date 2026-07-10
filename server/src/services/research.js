@@ -1,12 +1,14 @@
 /**
  * Personalized research + pitch for a lead.
- * Strategy (per spec): approach as an interested *customer*, ask about their
- * offering, then ask for their website — if they don't have one, offer to
- * build it with Forwardly. Covers the common on-call objections (reschedule,
- * "I'm busy", "where did you get my number", pricing) and closes with our
- * working style. Generated in English AND Hindi (kept as two separate blocks,
- * not interleaved, so an agent can read either end-to-end). Template-based;
- * swap in an LLM later via the hook.
+ * Strategy: approach as an interested *customer*, ask about their offering,
+ * then ask for their website — if they don't have one (or it's weak), reveal
+ * honestly that we're Forwardly and offer a FREE demo website first. Pricing is
+ * three one-time tiers (9k / 15k / 20k). Covers the common on-call objections
+ * and closes by booking the next step / onboarding.
+ *
+ * Generated in English AND Hinglish (Roman Hindi) as two separate end-to-end
+ * blocks, so an agent reads whichever suits the customer. Template-based; swap
+ * in an LLM later via generateResearch.
  */
 
 const ASK = {
@@ -23,25 +25,23 @@ const ASK = {
 };
 
 const ASK_HI = {
-  "real estate": "इस इलाके में 3BHK किराए पर",
-  restaurant: "इस वीकेंड 6 लोगों के लिए टेबल और आपका मेन्यू",
-  gym: "आपकी मंथली मेंबरशिप प्लान्स",
-  salon: "ब्राइडल पैकेज और आपका रेट कार्ड",
-  clinic: "अपॉइंटमेंट और आपकी कंसल्टेशन फीस",
-  "interior design": "2BHK इंटीरियर का कोटेशन",
-  boutique: "आपका लेटेस्ट कलेक्शन और कीमतें",
-  "coaching institute": "आपकी बैच टाइमिंग्स और फीस",
-  cafe: "क्या आप पार्टी बुकिंग लेते हैं",
-  default: "आपकी सर्विसेज़ और प्राइसिंग",
+  "real estate": "is area mein ek 3BHK rent pe",
+  restaurant: "is weekend 6 logon ke liye table aur aapka menu",
+  gym: "aapke monthly membership plans",
+  salon: "ek bridal package aur aapka rate card",
+  clinic: "ek appointment aur aapki consultation fees",
+  "interior design": "2BHK interior ka quotation",
+  boutique: "aapka latest collection aur prices",
+  "coaching institute": "aapki batch timings aur fees",
+  cafe: "kya aap party booking lete hain",
+  default: "aapki services aur pricing",
 };
 
 function askFor(industry) {
-  const key = (industry || "").toLowerCase();
-  return ASK[key] || ASK.default;
+  return ASK[(industry || "").toLowerCase()] || ASK.default;
 }
 function askForHi(industry) {
-  const key = (industry || "").toLowerCase();
-  return ASK_HI[key] || ASK_HI.default;
+  return ASK_HI[(industry || "").toLowerCase()] || ASK_HI.default;
 }
 
 /** Gurgaon-based leads get the physical-office mention; everyone else stays remote-only. */
@@ -53,96 +53,110 @@ function isGurgaon(lead) {
 function buildPitchEN(lead, ind, area, ask, gurgaon) {
   const reveal =
     lead.classification === "hot"
-      ? `[If NO website] Actually that's why I called — I couldn't find you online. I'm with Forwardly, we build professional websites for ${ind} businesses and can get you live in a few days so customers like me find you easily. Can I WhatsApp you a quick sample + pricing?`
-      : `[If weak/old site] I did find it, but it looked a bit dated or slow to load. I'm with Forwardly — we redesign ${ind} websites so they load fast and bring in more enquiries. Can I share a quick before/after?`;
+      ? `[If NO website] Actually that's exactly why I called — I couldn't find you online. Honestly, I'm with Forwardly. We're an agency that builds professional websites for ${ind} businesses so your online presence is strong and customers like me can find you easily — and we can get you live in just a few days.`
+      : `[If the site is weak/old] I did find it, but it looked a bit dated and slow to load. Honestly, I'm with Forwardly — we redesign ${ind} websites so they load fast and bring in more enquiries.`;
 
   const workLine = gurgaon
-    ? "Our core team works remotely to keep costs low for you — but for Gurgaon clients we also have a physical office at Innov8, Sector 53 Gurgaon (Golf Course Road), if you'd ever like to meet in person or send someone across."
-    : "Our core team works remotely to keep costs low for you — the whole process (demo, feedback, updates) happens online, so your location is never a constraint.";
+    ? "Our core team works remotely to keep your cost low — but for Gurgaon clients we also have a physical office at Innov8, Sector 53 Gurgaon (Golf Course Road), if you'd ever like to meet in person or send someone across."
+    : "Our core team works remotely to keep your cost low — the whole process (demo, feedback, updates) happens online, so your location is never a constraint.";
 
   return [
     "OPENING (mystery-shopper — call as an interested customer)",
-    `Hi, is this ${lead.name}? I was looking for ${ind} in ${area} — do you handle ${ask}?`,
+    `Hi, is this ${lead.name}? I was looking for ${ind} in ${area} — do you handle ${ask}? Could I get a rough quotation?`,
     "",
-    "Perfect. Quick one — do you have a website where I can check details or pricing?",
+    "THE WEBSITE BRIDGE",
+    "Perfect. Quick one — do you have a website where I can see your previous work or pricing?",
     "",
-    "REVEAL (once they answer about the website)",
+    "REVEAL + INTEREST CHECK (once they answer about the website)",
     reveal,
+    "Would you be interested in hearing a bit more?",
+    "[If not interested] -> No problem at all, thank you for your time — have a good day. (Log as not interested, do not push.)",
     "",
-    "OBJECTION 1 — \"Can we connect after 5 / call me later?\"",
-    "Of course, no problem at all — happy to call back then. But before I let you go, could I take just 30 seconds? Is this something that actually sounds useful for your business, or would you rather I not follow up at all?",
-    "[If useful/willing] -> continue straight into the reveal + pricing above.",
-    "[If not interested] -> No worries at all, thank you for your time — have a good day. (Log as not interested, do not push further.)",
+    "THE PLAN + FREE DEMO (when they ask \"how much?\")",
+    "Before I get to pricing, let me share your personalized plan so it's clear what you'd get.",
+    "First, our tech team builds you a FREE demo website. You see the demo — and only if you like it do we move ahead. No advance.",
     "",
-    "OBJECTION 2 — \"I'm busy right now\"",
-    "Totally understand, I'll keep it short. What would be a good time today or tomorrow for a quick 2-minute call?",
-    "-> Note down the time they give you and set a recall for it — do not skip the callback.",
-    "",
-    "OBJECTION 3 — \"Where did you get my number?\"",
-    `Stay calm and reassure them: No problem at all — I was searching online for the best ${ind} in ${area}, and that's how I came across your business and number. I'm not a random telemarketer — I run a small web studio and only reach out to businesses I think I can genuinely help.`,
-    "",
-    "PRICING (when they ask \"how much\")",
-    "Sure, happy to break it down — no hidden costs, and this excludes domain purchase:",
-    "• Basic Website — Rs. 15,000 one-time: 5-page website, built-in SEO, free hosting, and 3 months of support.",
-    "• Website + Admin Panel (recommended) — Rs. 20,000 one-time: everything in Basic, plus your own admin panel so YOU can update photos, prices and content yourself, anytime, without calling a developer.",
+    "PRICING — three options (one-time, no hidden cost, domain purchase excluded)",
+    "• Starter — Rs. 9,000: our proven website layout with your content, images and small tweaks to fit you. (No admin panel.)",
+    "• Premium — Rs. 15,000: a fully custom, premium design built around your brand and needs. (No admin panel — small changes are handled by us.)",
+    "• Premium + Admin Panel (recommended) — Rs. 20,000: everything in Premium, plus your own admin panel and backend, so YOU can update photos, prices and content yourself, anytime, without calling a developer.",
     "I'd personally recommend the Admin Panel plan so you're never dependent on us for small changes.",
     "",
-    "OUR APPROACH (say this to any lead who sounds close to closing)",
-    "And just so you know how we work — we don't take 50% advance like most agencies. Before you pay anything, we first understand your business, prepare a quick competitor report and a personalized plan for you, and even build a demo of your website. Only once you've seen the demo and are happy with it do we ask you to confirm and get started.",
+    "OUR APPROACH (say this to any lead close to saying yes)",
+    "And just so you know how we work — we don't take 50% advance like most agencies. First we understand your business, prepare a quick competitor report and a personalized plan, and even build a demo of your website. Only once you've seen the demo and are happy do we ask you to confirm — and then we onboard you.",
     "",
     "HOW WE WORK",
     workLine,
     "",
+    "OBJECTION — \"Call me later / after 5\"",
+    "Of course, happy to call back. But before I let you go — 30 seconds: is this something that sounds useful for your business, or would you rather I not follow up at all? [If useful -> continue. If not -> thank them and log.]",
+    "",
+    "OBJECTION — \"I'm busy right now\"",
+    "Totally understand, I'll keep it short. What's a good time today or tomorrow for a quick 2-minute call? [Note the time and set a recall — don't skip it.]",
+    "",
+    "OBJECTION — \"Where did you get my number?\"",
+    `Fair question — I was searching online for the best ${ind} in ${area}, and that's how I came across your business and number. I'm not a random telemarketer — I run a small web studio and only reach out to businesses I think I can genuinely help.`,
+    "",
+    "OBJECTION — \"It's too expensive\"",
+    "I understand — that's why we also have the Starter at Rs. 9,000, and the demo is completely free. You can see the demo without paying anything, then decide.",
+    "",
     "CLOSING",
-    "So — what would be a good time to connect and take this forward, or should I WhatsApp you the sample, competitor report and pricing first so you can look at it whenever's convenient?",
+    "So — what's a good time to take this forward, or should I WhatsApp you the sample, competitor report and pricing now, so you can look whenever it's convenient?",
   ].join("\n");
 }
 
-function buildPitchHI(lead, ind, area, ask, gurgaon) {
+function buildPitchHinglish(lead, ind, area, ask, gurgaon) {
   const reveal =
     lead.classification === "hot"
-      ? `[अगर वेबसाइट नहीं है] असल में इसीलिए मैंने कॉल किया — मुझे आप ऑनलाइन नहीं मिले। मैं Forwardly से हूं, हम ${ind} बिज़नेस के लिए प्रोफेशनल वेबसाइट बनाते हैं और कुछ ही दिनों में आपको लाइव कर सकते हैं ताकि मेरे जैसे कस्टमर आपको आसानी से ढूंढ पाएं। क्या मैं आपको एक क्विक सैंपल और प्राइसिंग व्हाट्सएप कर सकता/सकती हूं?`
-      : `[अगर वेबसाइट पुरानी/कमज़ोर है] मुझे आपकी वेबसाइट मिली, पर वो थोड़ी पुरानी लगी और लोड होने में समय ले रही थी। मैं Forwardly से हूं — हम ${ind} की वेबसाइट को तेज़ और नए सिरे से डिज़ाइन करते हैं ताकि ज़्यादा इंक्वायरी आएं। क्या मैं आपको एक क्विक बिफोर/आफ्टर भेज सकता/सकती हूं?`;
+      ? `[Agar website NAHI hai] Actually isiliye maine call kiya — main aapko online dhoond nahi paaya. Honestly, main Forwardly se hoon. Hum ek agency hain jo ${ind} businesses ke liye professional websites banate hain, taaki aapki online presence bane aur mere jaise customers aapko easily dhoond sakein — aur hum kuch hi din mein aapko live kar dete hain.`
+      : `[Agar site purani/kamzor hai] Mili to sahi, par thodi purani aur slow lagi. Honestly, main Forwardly se hoon — hum ${ind} websites ko naye sire se, fast aur better banate hain taaki zyada enquiries aayein.`;
 
   const workLine = gurgaon
-    ? "हमारी कोर टीम रिमोट से काम करती है ताकि आपकी लागत कम रहे — लेकिन गुड़गांव के क्लाइंट्स के लिए हमारा एक ऑफिस भी है: Innov8, सेक्टर 53 गुड़गांव (गोल्फ कोर्स रोड) — अगर आप कभी मिलना चाहें या किसी को भेजना चाहें तो।"
-    : "हमारी कोर टीम रिमोट से काम करती है ताकि आपकी लागत कम रहे — डेमो से लेकर अपडेट तक, सब कुछ ऑनलाइन ही होता है, तो लोकेशन कभी कोई दिक्कत नहीं है।";
+    ? "Hamari core team remote kaam karti hai taaki aapki cost kam rahe — par Gurgaon clients ke liye humara physical office bhi hai: Innov8, Sector 53 Gurgaon (Golf Course Road). Aap kabhi milna chahein ya kisi ko bhej dein, welcome hai."
+    : "Hamari core team remote kaam karti hai taaki aapki cost kam rahe — demo se leke updates tak sab online hota hai, to location kabhi koi dikkat nahi.";
 
   return [
-    "शुरुआत (मिस्ट्री-शॉपर — एक इंटरेस्टेड कस्टमर की तरह कॉल करें)",
-    `नमस्ते, क्या ये ${lead.name} है? मुझे ${area} में ${ind} की ज़रूरत थी — क्या आप ${ask} की सुविधा देते हैं?`,
+    "SHURUAAT (mystery-shopper — interested customer banke call karo)",
+    `Hello, kya main ${lead.name} se baat kar raha hoon? Main ${area} mein ${ind} dhoond raha tha — kya aap ${ask} handle karte hain? Ek rough quotation mil sakta hai?`,
     "",
-    "बढ़िया। एक छोटी सी बात — क्या आपकी कोई वेबसाइट है जहां मैं डिटेल्स या प्राइसिंग देख सकूं?",
+    "WEBSITE BRIDGE",
+    "Perfect. Ek quick sawaal — aapki koi website hai jahan main aapka previous kaam ya pricing dekh sakoon?",
     "",
-    "रिवील (जब वो वेबसाइट के बारे में जवाब दें)",
+    "REVEAL + INTEREST CHECK (jab wo website ke baare mein jawab dein)",
     reveal,
+    "Kya aap aage sunne mein interested honge?",
+    "[Agar interested nahi] -> Koi baat nahi, aapke time ke liye shukriya — have a good day. (Not interested log karo, push mat karo.)",
     "",
-    "आपत्ति 1 — \"क्या हम 5 बजे के बाद बात कर सकते हैं / बाद में कॉल करें?\"",
-    "बिल्कुल, कोई दिक्कत नहीं — मैं बाद में कॉल कर लूंगा/लूंगी। पर जाने से पहले, क्या मैं सिर्फ 30 सेकंड ले सकता/सकती हूं? क्या ये आपके बिज़नेस के लिए सच में उपयोगी लग रहा है, या आप चाहेंगे कि मैं दोबारा फॉलो-अप न करूं?",
-    "[अगर उपयोगी लगे / तैयार हों] -> सीधे ऊपर वाले रिवील और प्राइसिंग पर जाएं।",
-    "[अगर इंटरेस्टेड न हों] -> कोई बात नहीं, आपके समय के लिए धन्यवाद — दिन शुभ हो। (नॉट इंटरेस्टेड के तौर पर नोट करें, ज़बरदस्ती फॉलो-अप न करें।)",
+    "PLAN + FREE DEMO (jab wo poochein \"kitne ka hai?\")",
+    "Prices batane se pehle, main aapko aapka personalized plan share karta hoon taaki clear ho ki aapko kya milega.",
+    "Sabse pehle hamari tech team aapke liye ek FREE demo website banati hai. Aap demo dekhte ho — agar pasand aaye, tabhi aage badhte hain. Koi advance nahi.",
     "",
-    "आपत्ति 2 — \"मैं अभी बिज़ी हूं\"",
-    "बिल्कुल समझ सकता/सकती हूं, मैं जल्दी बात खत्म करूंगा/करूंगी। आज या कल किस समय 2 मिनट के लिए बात करना ठीक रहेगा?",
-    "-> उनका बताया हुआ समय नोट करें और उसी के लिए रीकॉल सेट करें — कॉलबैक मिस न करें।",
+    "PRICING — teen options (one-time, no hidden cost, domain purchase alag hai)",
+    "• Starter — Rs. 9,000: hamara proven layout, usme aapka content, images aur thodi customization aapke hisaab se. (Admin panel nahi.)",
+    "• Premium — Rs. 15,000: fully customized premium site, bilkul aapke brand aur zaroorat ke hisaab se. (Admin panel nahi — chhoti changes hum karte hain.)",
+    "• Premium + Admin Panel (recommended) — Rs. 20,000: Premium ki sab cheezein, plus aapka apna admin panel aur backend, taaki aap khud photos, prices aur content kabhi bhi update kar sako, bina developer ko call kiye.",
+    "Main personally aapko Admin Panel plan recommend karunga, taaki chhoti changes ke liye aap kabhi hum par dependent na raho.",
     "",
-    "आपत्ति 3 — \"आपको मेरा नंबर कहां से मिला?\"",
-    `शांत रहें और उन्हें भरोसा दिलाएं: कोई बात नहीं — मैं ऑनलाइन ${area} में सबसे अच्छे ${ind} खोज रहा/रही था/थी, और वहीं से मुझे आपका बिज़नेस और नंबर मिला। मैं कोई रैंडम टेलीमार्केटर नहीं हूं — मैं एक छोटी वेब स्टूडियो चलाता/चलाती हूं और सिर्फ उन्हीं बिज़नेस से संपर्क करता/करती हूं जिनकी मैं असल में मदद कर सकूं।`,
+    "HAMARA TARIKA (jo bhi lead haan ke kareeb ho, use zaroor bolo)",
+    "Aur jaise hum kaam karte hain — hum 50% advance nahi lete jaise zyada agencies leti hain. Pehle hum aapka business samajhte hain, ek quick competitor report aur personalized plan banate hain, aur aapki website ka demo bana ke dikhate hain. Jab aap demo dekh ke khush ho, tabhi confirm karte ho — phir hum aapko onboard kar dete hain.",
     "",
-    "प्राइसिंग (जब वो \"कितना खर्चा होगा\" पूछें)",
-    "ज़रूर, मैं पूरी डिटेल बताता/बताती हूं — कोई छुपा हुआ चार्ज नहीं, और ये डोमेन की कीमत को छोड़कर है:",
-    "• बेसिक वेबसाइट — ₹15,000 वन-टाइम: 5-पेज वेबसाइट, बिल्ट-इन SEO, फ्री होस्टिंग, और 3 महीने का सपोर्ट।",
-    "• वेबसाइट + एडमिन पैनल (हमारी सलाह) — ₹20,000 वन-टाइम: बेसिक की हर चीज़, साथ ही आपका खुद का एडमिन पैनल जिससे आप खुद फोटो, कीमतें और कंटेंट कभी भी बदल सकते हैं, बिना डेवलपर को कॉल किए।",
-    "मैं पर्सनली एडमिन पैनल प्लान की सलाह दूंगा/दूंगी ताकि छोटे बदलावों के लिए भी आप हम पर निर्भर न रहें।",
-    "",
-    "हमारा तरीका (जो भी लीड डील क्लोज़ करने के करीब लगे, उसे ज़रूर बताएं)",
-    "और ये भी बता दूं कि हम कैसे काम करते हैं — ज़्यादातर एजेंसियों की तरह हम 50% एडवांस नहीं लेते। पेमेंट से पहले, हम पहले आपका बिज़नेस समझते हैं, एक क्विक कॉम्पिटिटर रिपोर्ट और आपके लिए पर्सनलाइज़्ड प्लान बनाते हैं, और आपकी वेबसाइट का डेमो भी बनाकर दिखाते हैं। जब आप डेमो देखकर खुश हों, तभी हम आपसे कन्फर्म करने को कहते हैं।",
-    "",
-    "हम कैसे काम करते हैं",
+    "HUM KAISE KAAM KARTE HAIN",
     workLine,
     "",
-    "क्लोज़िंग",
-    "तो बताइए — इसे आगे बढ़ाने के लिए बात करने का सही समय क्या रहेगा, या मैं पहले आपको सैंपल, कॉम्पिटिटर रिपोर्ट और प्राइसिंग व्हाट्सएप कर दूं ताकि आप जब सुविधाजनक हो तब देख लें?",
+    "OBJECTION — \"Baad mein call karo / 5 baje ke baad\"",
+    "Bilkul, main call back kar lunga. Par jaane se pehle — 30 second: kya ye aapke business ke liye useful lagta hai, ya main follow-up hi na karun? [Useful -> aage badho. Nahi -> shukriya bolo aur log karo.]",
+    "",
+    "OBJECTION — \"Abhi busy hoon\"",
+    "Samajh sakta hoon, main short rakhunga. Aaj ya kal 2-minute ki call ke liye acha time kya rahega? [Time note karo aur recall set karo — skip mat karo.]",
+    "",
+    "OBJECTION — \"Number kahan se mila?\"",
+    `Valid sawaal — main online ${area} mein best ${ind} dhoond raha tha, wahin se aapka business aur number mila. Main koi random telemarketer nahi hoon — ek chhoti web studio chalata hoon aur unhi businesses ko call karta hoon jinki main genuinely madad kar sakoon.`,
+    "",
+    "OBJECTION — \"Bahut mehenga hai\"",
+    "Samajh sakta hoon — isiliye Starter Rs. 9,000 ka bhi hai, aur demo bilkul free hai. Aap bina paisa diye demo dekh lo, phir decide karna.",
+    "",
+    "CLOSING",
+    "Toh — ek acha time bata dijiye jab aage baat kar sakein, ya main abhi aapko WhatsApp pe sample, competitor report aur pricing bhej doon, aap fursat se dekh lena?",
   ].join("\n");
 }
 
@@ -176,7 +190,7 @@ export function generateResearch(lead) {
   }
 
   const pitch = buildPitchEN(lead, ind, area, ask, gurgaon);
-  const pitchHi = buildPitchHI(lead, ind, area, askHi, gurgaon);
+  const pitchHi = buildPitchHinglish(lead, ind, area, askHi, gurgaon);
 
   return {
     summary,
