@@ -7,6 +7,7 @@ import User from "../models/User.js";
 import { auth, requireAdmin } from "../middleware/auth.js";
 import { generateResearch } from "../services/research.js";
 import { streamReport } from "../services/pdf.js";
+import { streamProposal } from "../services/proposal.js";
 import { ymd } from "../services/util.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -69,6 +70,14 @@ r.get("/:id/report.pdf", async (req, res) => {
     await lead.save();
   }
   streamReport(lead, res);
+});
+
+// on-demand sales proposal PDF (pricing/package doc) — available for any lead,
+// generated fresh each time so the client's name is always correct.
+r.get("/:id/proposal.pdf", async (req, res) => {
+  const lead = await Lead.findOne(scopeFor(req, { _id: req.params.id }));
+  if (!lead) return res.status(404).send("Not found");
+  streamProposal(lead, res);
 });
 
 // CRM update: status / reason / response / recall

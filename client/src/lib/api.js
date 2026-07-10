@@ -23,4 +23,8 @@ api.interceptors.response.use(
 export const reportUrl = (id) =>
   `/api/leads/${id}/report.pdf?token=${localStorage.getItem("fl_token") || ""}`;
 
+/** Direct link to a lead's live-generated sales proposal / pricing PDF. */
+export const proposalUrl = (id) =>
+  `/api/leads/${id}/proposal.pdf?token=${localStorage.getItem("fl_token") || ""}`;
+
 export default api;

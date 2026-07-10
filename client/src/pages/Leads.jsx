@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
-import { Phone, FileText, Search } from "lucide-react";
-import api, { reportUrl } from "../lib/api";
+import { Phone, FileText, Search, ReceiptIndianRupee } from "lucide-react";
+import api, { reportUrl, proposalUrl } from "../lib/api";
 import { useAuth } from "../lib/auth.jsx";
 import LeadDrawer from "./LeadDrawer.jsx";
 
@@ -75,10 +75,10 @@ export default function Leads() {
       </div>
 
       <div className="card overflow-x-auto">
-        <table className="w-full min-w-[760px] text-sm">
+        <table className="w-full min-w-[860px] text-sm">
           <thead className="bg-gray-50 text-left text-xs uppercase text-gray-400">
             <tr>
-              <th className="px-4 py-3">Business</th><th className="px-3 py-3">Type</th><th className="whitespace-nowrap px-3 py-3">Phone</th><th className="px-3 py-3">Status</th><th className="whitespace-nowrap px-3 py-3">Assigned</th><th className="px-3 py-3">Report</th>
+              <th className="px-4 py-3">Business</th><th className="px-3 py-3">Type</th><th className="whitespace-nowrap px-3 py-3">Phone</th><th className="px-3 py-3">Status</th><th className="whitespace-nowrap px-3 py-3">Assigned</th><th className="px-3 py-3">Report</th><th className="px-3 py-3">Proposal</th>
             </tr>
           </thead>
           <tbody>
@@ -102,9 +102,12 @@ export default function Leads() {
                 <td className="px-3 py-3" onClick={(e) => e.stopPropagation()}>
                   {l.classification !== "cold" ? <a href={reportUrl(l._id)} target="_blank" rel="noreferrer" className="text-[#6d8b00]"><FileText size={16} /></a> : "—"}
                 </td>
+                <td className="px-3 py-3" onClick={(e) => e.stopPropagation()}>
+                  <a href={proposalUrl(l._id)} target="_blank" rel="noreferrer" title="Generate pricing proposal" className="text-[#6d8b00]"><ReceiptIndianRupee size={16} /></a>
+                </td>
               </tr>
             ))}
-            {!items.length && <tr><td colSpan={6} className="py-10 text-center text-gray-400">No leads match.</td></tr>}
+            {!items.length && <tr><td colSpan={7} className="py-10 text-center text-gray-400">No leads match.</td></tr>}
           </tbody>
         </table>
       </div>
