@@ -4,6 +4,7 @@ import Layout from "./components/Layout.jsx";
 import Login from "./pages/Login.jsx";
 import Dashboard from "./pages/Dashboard.jsx";
 import Leads from "./pages/Leads.jsx";
+import Script from "./pages/Script.jsx";
 import Agents from "./pages/Agents.jsx";
 import DayConfig from "./pages/DayConfig.jsx";
 
@@ -32,6 +33,7 @@ export default function App() {
       >
         <Route path="/" element={<Dashboard />} />
         <Route path="/leads" element={<Leads />} />
+        <Route path="/script" element={<Script />} />
         <Route path="/agents" element={<AdminOnly><Agents /></AdminOnly>} />
         <Route path="/config" element={<AdminOnly><DayConfig /></AdminOnly>} />
       </Route>
