@@ -50,7 +50,7 @@ export default function Leads() {
         </div>
         <form onSubmit={onSearch} className="relative w-full sm:w-auto">
           <Search size={16} className="absolute left-3 top-2.5 text-gray-400" />
-          <input className="input w-full pl-9 sm:w-64" placeholder="Search name / phone…" value={q} onChange={(e) => setQ(e.target.value)} />
+          <input className="input w-full sm:w-64" style={{ paddingLeft: "2.25rem" }} placeholder="Search name / phone…" value={q} onChange={(e) => setQ(e.target.value)} />
         </form>
       </div>
 
