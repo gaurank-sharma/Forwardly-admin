@@ -127,11 +127,7 @@ export default function LeadDrawer({ id, agents = [], onClose, onChange }) {
                   Hinglish
                 </button>
               </div>
-              <pre className="whitespace-pre-wrap rounded-lg bg-white p-3 text-sm text-gray-700">
-                {pitchLang === "en"
-                  ? lead.research?.pitch || "—"
-                  : lead.research?.pitchHi || "Hinglish script not generated yet — click Regenerate."}
-              </pre>
+              <PitchView text={pitchLang === "en" ? lead.research?.pitch : lead.research?.pitchHi} />
             </div>
           )}
         </div>
@@ -214,6 +210,50 @@ export default function LeadDrawer({ id, agents = [], onClose, onChange }) {
           </div>
         </div>
       </div>
+    </div>
+  );
+}
+
+/* Renders a pitch string as styled sections: blank-line-separated blocks,
+   first line = section header, rest = body (bullets / [notes] / spoken text). */
+function PitchView({ text }) {
+  const blocks = (text || "")
+    .split(/\n\n+/)
+    .map((b) => b.split("\n").filter((l) => l.length))
+    .filter((a) => a.length);
+
+  if (!blocks.length)
+    return <div className="rounded-lg bg-white p-3 text-sm text-gray-400">No script yet — click Regenerate.</div>;
+
+  return (
+    <div className="space-y-2.5">
+      {blocks.map(([head, ...body], i) => {
+        const m = head.match(/^([^(]+?)(\s*\(.*\))?$/);
+        return (
+          <div key={i} className="rounded-lg border border-gray-100 bg-white p-3">
+            <div className="text-[11px] font-bold uppercase tracking-wide text-[#5f7a00]">
+              {m ? m[1].trim() : head}
+              {m && m[2] && (
+                <span className="font-medium normal-case tracking-normal text-gray-400"> {m[2].trim()}</span>
+              )}
+            </div>
+            <div className="mt-1.5 space-y-1">
+              {body.map((ln, j) => {
+                if (/^•/.test(ln))
+                  return (
+                    <div key={j} className="flex gap-1.5 text-sm text-gray-700">
+                      <span className="text-[#6b8500]">•</span>
+                      <span>{ln.replace(/^•\s*/, "")}</span>
+                    </div>
+                  );
+                if (/^\[/.test(ln))
+                  return <div key={j} className="text-xs italic text-gray-400">{ln}</div>;
+                return <p key={j} className="text-sm leading-relaxed text-gray-700">{ln}</p>;
+              })}
+            </div>
+          </div>
+        );
+      })}
     </div>
   );
 }
