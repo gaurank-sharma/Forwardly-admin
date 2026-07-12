@@ -7,6 +7,7 @@ import Leads from "./pages/Leads.jsx";
 import Script from "./pages/Script.jsx";
 import Agents from "./pages/Agents.jsx";
 import DayConfig from "./pages/DayConfig.jsx";
+import BniLeads from "./pages/BniLeads.jsx";
 
 function Protected({ children }) {
   const { user, loading } = useAuth();
@@ -36,6 +37,7 @@ export default function App() {
         <Route path="/script" element={<Script />} />
         <Route path="/agents" element={<AdminOnly><Agents /></AdminOnly>} />
         <Route path="/config" element={<AdminOnly><DayConfig /></AdminOnly>} />
+        <Route path="/bni-data" element={<AdminOnly><BniLeads /></AdminOnly>} />
       </Route>
       <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>

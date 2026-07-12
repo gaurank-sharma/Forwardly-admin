@@ -13,6 +13,7 @@ import configRoutes from "./routes/config.routes.js";
 import leadRoutes from "./routes/leads.routes.js";
 import statsRoutes from "./routes/stats.routes.js";
 import cronRoutes from "./routes/cron.routes.js";
+import bniLeadsRoutes from "./routes/bniLeads.routes.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
@@ -42,6 +43,7 @@ app.use("/api/config", configRoutes);
 app.use("/api/leads", leadRoutes);
 app.use("/api/stats", statsRoutes);
 app.use("/api/cron", cronRoutes);
+app.use("/api/bni-leads", bniLeadsRoutes);
 
 app.use((err, req, res, next) => {
   console.error(err);

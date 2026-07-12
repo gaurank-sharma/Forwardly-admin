@@ -8,7 +8,10 @@
     "start": "node src/index.js",
     "seed": "node src/seed.js",
     "ingest": "node src/jobs/runIngest.js",
-    "passwords": "node src/setPasswords.js"
+    "passwords": "node src/setPasswords.js",
+    "bni:test": "node src/scripts/bniScraper/run.js --test",
+    "bni:scrape": "node src/scripts/bniScraper/run.js",
+    "bni:import": "node src/scripts/importBniLeads.js"
   },
   "dependencies": {
     "axios": "^1.7.7",

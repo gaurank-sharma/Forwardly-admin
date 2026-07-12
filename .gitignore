@@ -4,5 +4,7 @@ dist
 *.local
 server/uploads/*
 !server/uploads/.gitkeep
+server/src/scripts/bniScraper/.env
+server/src/scripts/bniScraper/output/
 .DS_Store
 npm-debug.log*
