@@ -2,37 +2,43 @@ import { useEffect, useState } from "react";
 import { Phone, Mail, Globe, Search, RefreshCw, ChevronLeft, ChevronRight } from "lucide-react";
 import api from "../lib/api";
 
-const INDUSTRIES = [
-  { k: "", label: "All industries" },
-  { k: "architects", label: "Architects" },
-  { k: "interior designer", label: "Interior designer" },
-  { k: "real estate", label: "Real estate" },
-  { k: "construction", label: "Construction" },
-];
-
 function Stat({ label, value, tone }) {
   const tones = { hot: "text-[#8ab000]", ink: "text-[#0a0a0b]", gray: "text-gray-400" };
   return (
     <div className="card p-4">
-      <div className={`text-3xl font-extrabold ${tones[tone] || tones.ink}`}>{value}</div>
+      <div className={`text-3xl font-extrabold ${tones[tone] || tones.ink}`}>{value ?? 0}</div>
       <div className="mt-1 text-xs font-medium uppercase tracking-wide text-gray-500">{label}</div>
     </div>
   );
 }
 
+const TRI = [
+  { k: "", label: "Any" },
+  { k: "yes", label: "Yes" },
+  { k: "no", label: "No" },
+];
+
 export default function BniLeads() {
   const [items, setItems] = useState([]);
   const [total, setTotal] = useState(0);
   const [stats, setStats] = useState(null);
+  const [industries, setIndustries] = useState([]);
+
   const [industry, setIndustry] = useState("");
   const [contact, setContact] = useState("");
+  const [hasEmail, setHasEmail] = useState("");
+  const [hasPhone, setHasPhone] = useState("");
+  const [hasWebsite, setHasWebsite] = useState("");
+  const [nationality, setNationality] = useState("");
   const [q, setQ] = useState("");
   const [page, setPage] = useState(1);
   const [refreshing, setRefreshing] = useState(false);
   const limit = 50;
 
   const load = async () => {
-    const { data } = await api.get("/bni-leads", { params: { industry, contact, q, page, limit } });
+    const { data } = await api.get("/bni-leads", {
+      params: { industry, contact, hasEmail, hasPhone, hasWebsite, nationality, q, page, limit },
+    });
     setItems(data.items);
     setTotal(data.total);
   };
@@ -40,18 +46,23 @@ export default function BniLeads() {
     const { data } = await api.get("/bni-leads/stats");
     setStats(data);
   };
+  const loadIndustries = async () => {
+    const { data } = await api.get("/bni-leads/industries");
+    setIndustries(data.industries);
+  };
 
-  useEffect(() => { load(); }, [industry, contact, page]);
-  useEffect(() => { loadStats(); }, []);
+  useEffect(() => { load(); }, [industry, contact, hasEmail, hasPhone, hasWebsite, nationality, page]);
+  useEffect(() => { loadStats(); loadIndustries(); }, []);
 
   const onSearch = (e) => { e.preventDefault(); setPage(1); load(); };
+  const onFilterChange = (setter) => (e) => { setter(e.target.value); setPage(1); };
 
   // Leads arrive continuously via the scraper's live push (POST /ingest) —
   // this just re-pulls the current DB state into view, no CSV import needed.
   const refresh = async () => {
     setRefreshing(true);
     try {
-      await Promise.all([load(), loadStats()]);
+      await Promise.all([load(), loadStats(), loadIndustries()]);
     } finally {
       setRefreshing(false);
     }
@@ -81,27 +92,52 @@ export default function BniLeads() {
         <div className="mb-6 grid grid-cols-2 gap-4 md:grid-cols-3 lg:grid-cols-6">
           <Stat label="Total contacts" value={stats.total} tone="ink" />
           <Stat label="With contact info" value={stats.withContact} tone="hot" />
-          {INDUSTRIES.filter((i) => i.k).map((i) => (
-            <Stat key={i.k} label={i.label} value={stats.byIndustry[i.k] || 0} tone="gray" />
-          ))}
+          <Stat label="Has email" value={stats.hasEmail} tone="gray" />
+          <Stat label="Has phone" value={stats.hasPhone} tone="gray" />
+          <Stat label="Has website" value={stats.hasWebsite} tone="gray" />
+          <Stat label="Foreign (non-India)" value={stats.foreign} tone="gray" />
         </div>
       )}
 
+      {/* filters — a select instead of pills since there are 35+ industries */}
       <div className="mb-4 flex flex-wrap items-center gap-2">
-        {INDUSTRIES.map((i) => (
-          <button
-            key={i.k}
-            onClick={() => { setIndustry(i.k); setPage(1); }}
-            className={`rounded-full px-3.5 py-1.5 text-sm font-medium ${industry === i.k ? "bg-[#0a0a0b] text-white" : "bg-white border border-gray-200 text-gray-600"}`}
-          >
-            {i.label}
-          </button>
-        ))}
-        <select className="input ml-2" style={{ width: 170 }} value={contact} onChange={(e) => { setContact(e.target.value); setPage(1); }}>
+        <select className="input" style={{ width: 220 }} value={industry} onChange={onFilterChange(setIndustry)}>
+          <option value="">All industries ({industries.length})</option>
+          {industries.map((i) => (
+            <option key={i} value={i}>{i}{stats?.byIndustry?.[i] ? ` (${stats.byIndustry[i]})` : ""}</option>
+          ))}
+        </select>
+
+        <select className="input" style={{ width: 160 }} value={contact} onChange={onFilterChange(setContact)}>
           <option value="">Any contact status</option>
           <option value="yes">Has phone/email</option>
           <option value="no">Missing contact info</option>
         </select>
+
+        <select className="input" style={{ width: 150 }} value={nationality} onChange={onFilterChange(setNationality)}>
+          <option value="">Indian + foreign</option>
+          <option value="indian">Indian only</option>
+          <option value="foreign">Foreign only</option>
+        </select>
+
+        <label className="flex items-center gap-1.5 text-sm text-gray-600">
+          Email
+          <select className="input" style={{ width: 80 }} value={hasEmail} onChange={onFilterChange(setHasEmail)}>
+            {TRI.map((t) => <option key={t.k} value={t.k}>{t.label}</option>)}
+          </select>
+        </label>
+        <label className="flex items-center gap-1.5 text-sm text-gray-600">
+          Phone
+          <select className="input" style={{ width: 80 }} value={hasPhone} onChange={onFilterChange(setHasPhone)}>
+            {TRI.map((t) => <option key={t.k} value={t.k}>{t.label}</option>)}
+          </select>
+        </label>
+        <label className="flex items-center gap-1.5 text-sm text-gray-600">
+          Website
+          <select className="input" style={{ width: 80 }} value={hasWebsite} onChange={onFilterChange(setHasWebsite)}>
+            {TRI.map((t) => <option key={t.k} value={t.k}>{t.label}</option>)}
+          </select>
+        </label>
       </div>
 
       <div className="card overflow-x-auto">
@@ -121,7 +157,12 @@ export default function BniLeads() {
           <tbody>
             {items.map((l) => (
               <tr key={l._id} className="border-t border-gray-50 hover:bg-gray-50">
-                <td className="px-4 py-3 font-medium">{l.displayName}</td>
+                <td className="px-4 py-3 font-medium">
+                  {l.displayName}
+                  {l.isIndian === false && (
+                    <span className="ml-2 rounded bg-blue-100 px-1.5 py-0.5 text-[10px] font-bold uppercase text-blue-700">Foreign</span>
+                  )}
+                </td>
                 <td className="px-3 py-3 text-gray-600">{l.companyName || "—"}</td>
                 <td className="px-3 py-3 text-gray-500">{l.industryKeyword}</td>
                 <td className="px-3 py-3 text-gray-500">{l.memberChapter || "—"}</td>

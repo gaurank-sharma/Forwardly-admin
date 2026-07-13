@@ -48,6 +48,14 @@ function parseCsv(text) {
 const bool = (v) => (typeof v === "boolean" ? v : String(v).toLowerCase() === "true");
 const num = (v) => (v === "" || v === undefined || v === null ? undefined : Number(v));
 
+// Empty country → unknown, default to Indian since this dataset is
+// overwhelmingly India-chapter sourced. Otherwise match "India"/"IN".
+function computeIsIndian(country) {
+  if (!country) return true;
+  const c = String(country).trim().toLowerCase();
+  return c === "india" || c === "in";
+}
+
 // Accepts one flat row object keyed by the scraper's CSV_COLUMNS names
 // (industry_keyword, user_id, ...) — same shape whether it came from a
 // parsed CSV line or a JSON payload posted directly by an external job.
@@ -76,6 +84,10 @@ export function mapRowToDoc(r) {
     emailAddress: r.email_address,
     websiteUrl: r.website_url,
     contactAvailable: bool(r.contact_available),
+    hasEmail: Boolean(r.email_address),
+    hasPhone: Boolean(r.phone_number || r.mobile_number),
+    hasWebsite: Boolean(r.website_url),
+    isIndian: computeIsIndian(r.country),
     primaryCategory: r.primary_category,
     secondaryCategory: r.secondary_category,
     requiredSpeciality: r.required_speciality,

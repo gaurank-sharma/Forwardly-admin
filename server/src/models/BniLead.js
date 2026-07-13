@@ -21,6 +21,12 @@ const bniLeadSchema = new mongoose.Schema(
     emailAddress: { type: String, default: "", index: true },
     websiteUrl: { type: String, default: "" },
     contactAvailable: { type: Boolean, default: false, index: true },
+    // Computed booleans, precomputed at write time so filtering at 30-40k+
+    // scale is a fast indexed lookup instead of a regex/existence scan.
+    hasEmail: { type: Boolean, default: false, index: true },
+    hasPhone: { type: Boolean, default: false, index: true },
+    hasWebsite: { type: Boolean, default: false, index: true },
+    isIndian: { type: Boolean, default: true, index: true },
 
     primaryCategory: { type: String, default: "" },
     secondaryCategory: { type: String, default: "" },
@@ -46,5 +52,8 @@ const bniLeadSchema = new mongoose.Schema(
 );
 
 bniLeadSchema.index({ companyName: "text", displayName: "text", business: "text" });
+// Common combined filters (industry + contact-info toggles) at list-page scale.
+bniLeadSchema.index({ industryKeyword: 1, hasEmail: 1, hasPhone: 1 });
+bniLeadSchema.index({ isIndian: 1, industryKeyword: 1 });
 
 export default mongoose.model("BniLead", bniLeadSchema);

@@ -31,13 +31,24 @@ r.post("/ingest", async (req, res) => {
 r.use(auth);
 r.use(requireAdmin);
 
+function boolParam(v) {
+  if (v === "yes") return true;
+  if (v === "no") return false;
+  return undefined;
+}
+
 r.get("/", async (req, res) => {
-  const { industry, contact, q, chapter, page = 1, limit = 50 } = req.query;
+  const { industry, contact, q, chapter, hasEmail, hasPhone, hasWebsite, nationality, page = 1, limit = 50 } = req.query;
   const query = {};
   if (industry) query.industryKeyword = industry;
   if (chapter) query.memberChapter = chapter;
   if (contact === "yes") query.contactAvailable = true;
   else if (contact === "no") query.contactAvailable = false;
+  if (boolParam(hasEmail) !== undefined) query.hasEmail = boolParam(hasEmail);
+  if (boolParam(hasPhone) !== undefined) query.hasPhone = boolParam(hasPhone);
+  if (boolParam(hasWebsite) !== undefined) query.hasWebsite = boolParam(hasWebsite);
+  if (nationality === "indian") query.isIndian = true;
+  else if (nationality === "foreign") query.isIndian = false;
   if (q) {
     query.$or = [
       { displayName: new RegExp(q, "i") },
@@ -57,16 +68,32 @@ r.get("/", async (req, res) => {
 });
 
 r.get("/stats", async (req, res) => {
-  const [total, withContact, byIndustry] = await Promise.all([
+  const [total, withContact, hasEmail, hasPhone, hasWebsite, foreign, byIndustry] = await Promise.all([
     BniLead.countDocuments(),
     BniLead.countDocuments({ contactAvailable: true }),
+    BniLead.countDocuments({ hasEmail: true }),
+    BniLead.countDocuments({ hasPhone: true }),
+    BniLead.countDocuments({ hasWebsite: true }),
+    BniLead.countDocuments({ isIndian: false }),
     BniLead.aggregate([{ $group: { _id: "$industryKeyword", n: { $sum: 1 } } }]),
   ]);
   res.json({
     total,
     withContact,
+    hasEmail,
+    hasPhone,
+    hasWebsite,
+    indian: total - foreign,
+    foreign,
     byIndustry: Object.fromEntries(byIndustry.map((b) => [b._id || "unknown", b.n])),
   });
+});
+
+// Distinct industry list actually present in the DB, for the filter dropdown
+// — safer than a hardcoded list now that there are 35+ possible keywords.
+r.get("/industries", async (req, res) => {
+  const industries = await BniLead.distinct("industryKeyword");
+  res.json({ industries: industries.filter(Boolean).sort() });
 });
 
 // Manual fallback: re-reads a CSV export (e.g. from the scraper repo's
