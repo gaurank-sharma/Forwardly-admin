@@ -55,7 +55,16 @@ export const config = {
   outputFile: path.resolve(__dirname, process.env.BNI_OUTPUT_FILE || "output/bni_leads.csv"),
   stateFile: path.resolve(__dirname, process.env.BNI_STATE_FILE || "output/state.json"),
   errorLogFile: path.resolve(__dirname, process.env.BNI_ERROR_LOG_FILE || "output/errors.log"),
+
+  // Deployed forwardly-leads backend — each scraped lead is also pushed here
+  // live via POST /api/bni-leads/ingest, in addition to the local CSV.
+  forwardlyApiUrl: (process.env.FORWARDLY_API_URL || "").replace(/\/+$/, ""),
+  forwardlyIngestSecret: process.env.FORWARDLY_INGEST_SECRET || "",
 };
+
+export function canPushLive() {
+  return Boolean(config.forwardlyApiUrl && config.forwardlyIngestSecret);
+}
 
 export function assertConfig() {
   required("BNI_BASE_URL");

@@ -1,10 +1,11 @@
-import { config, assertConfig } from "./config.js";
+import { config, assertConfig, canPushLive } from "./config.js";
 import { searchMembers, resolveUuid, fetchProfile } from "./httpClient.js";
 import { buildRow, CSV_COLUMNS } from "./mapProfile.js";
 import { CsvWriter } from "./csvWriter.js";
 import { loadState, saveState } from "./state.js";
 import { randomDelay } from "./utils.js";
 import { TokenExpiredError } from "./utils.js";
+import { pushRowLive } from "./pushLive.js";
 import fs from "fs";
 import path from "path";
 
@@ -61,6 +62,11 @@ async function runTest() {
 
 async function runFull() {
   assertConfig();
+  console.log(
+    canPushLive()
+      ? `Live push enabled -> ${config.forwardlyApiUrl}/api/bni-leads/ingest`
+      : "Live push disabled (set FORWARDLY_API_URL + FORWARDLY_INGEST_SECRET to enable)"
+  );
   const csv = new CsvWriter(config.outputFile, CSV_COLUMNS);
   csv.init();
 
@@ -120,6 +126,11 @@ async function runFull() {
             processedUserIds.add(searchResult.user_id);
             state.processedUserIds = processedUserIds;
             saveState(config.stateFile, state);
+
+            const pushResult = await pushRowLive(row);
+            if (pushResult.ok === false) {
+              logError(`Live push failed for user_id=${searchResult.user_id}: ${pushResult.error}`);
+            }
           }
         } catch (err) {
           if (err instanceof TokenExpiredError) {
