@@ -1,5 +1,5 @@
-import { config, assertConfig, canPushLive } from "./config.js";
-import { searchMembers, resolveUuid, fetchProfile } from "./httpClient.js";
+import { config, assertConfig, canPushLive, canAutoReauth } from "./config.js";
+import { searchMembers, resolveUuid, fetchProfile, authenticate, loginFresh } from "./httpClient.js";
 import { buildRow, CSV_COLUMNS } from "./mapProfile.js";
 import { CsvWriter } from "./csvWriter.js";
 import { loadState, saveState } from "./state.js";
@@ -17,6 +17,14 @@ function logError(message) {
   console.error(message);
 }
 
+// If no mtoken/cookie was pre-seeded but login credentials are set, mint
+// both from scratch so the scraper can start from just username+password.
+async function ensureBootstrapAuth() {
+  if (!canAutoReauth()) return;
+  if (!config.mtoken) await authenticate();
+  if (!config.cookie) await loginFresh();
+}
+
 async function processLead(industry, searchResult, processedUserIds) {
   if (processedUserIds.has(searchResult.user_id)) return null;
 
@@ -31,6 +39,7 @@ async function processLead(industry, searchResult, processedUserIds) {
 
 async function runTest() {
   assertConfig();
+  await ensureBootstrapAuth();
   const industry = config.industries[0];
   console.log(`[test] searching "${industry}", page 1...`);
   const page = await searchMembers(industry, 1);
@@ -62,6 +71,7 @@ async function runTest() {
 
 async function runFull() {
   assertConfig();
+  await ensureBootstrapAuth();
   console.log(
     canPushLive()
       ? `Live push enabled -> ${config.forwardlyApiUrl}/api/bni-leads/ingest`

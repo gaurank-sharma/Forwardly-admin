@@ -66,27 +66,40 @@ export function canPushLive() {
   return Boolean(config.forwardlyApiUrl && config.forwardlyIngestSecret);
 }
 
-export function assertConfig() {
-  required("BNI_BASE_URL");
-  required("BNI_COOKIE");
-  required("BNI_MTOKEN");
-  // BNI_SEARCH_TOKEN is optional — confirmed live that BNI_MTOKEN works for
-  // both search and profile calls, so it's only needed if that ever changes.
-}
-
 export function canAutoReauth() {
   return Boolean(config.clientId && config.clientSecret && config.username && config.password);
 }
 
-// Rewrites BNI_MTOKEN in .env in place so a fresh process start (not just
-// the current in-memory run) also picks up the renewed token.
-export function persistMtoken(token) {
-  config.mtoken = token;
+export function assertConfig() {
+  required("BNI_BASE_URL");
+  // A pre-seeded BNI_COOKIE/BNI_MTOKEN is no longer required on its own —
+  // if login credentials are set, the scraper bootstraps both from just
+  // username+password (see ensureBootstrapAuth in run.js).
+  if (!canAutoReauth() && (!config.cookie || !config.mtoken)) {
+    throw new Error(
+      "Missing BNI_COOKIE/BNI_MTOKEN, and no BNI_USERNAME/BNI_PASSWORD/BNI_CLIENT_ID/BNI_CLIENT_SECRET " +
+        "to auto-login with instead (see .env.example)."
+    );
+  }
+}
+
+// Rewrites a var in .env in place so a fresh process start (not just the
+// current in-memory run) also picks up the renewed value.
+function persistEnvVar(key, value) {
   if (!fs.existsSync(envFilePath)) return;
   const text = fs.readFileSync(envFilePath, "utf8");
-  const line = `BNI_MTOKEN=${token}`;
-  const next = /^BNI_MTOKEN=.*$/m.test(text)
-    ? text.replace(/^BNI_MTOKEN=.*$/m, line)
-    : `${text.trimEnd()}\n${line}\n`;
+  const line = `${key}=${value}`;
+  const re = new RegExp(`^${key}=.*$`, "m");
+  const next = re.test(text) ? text.replace(re, line) : `${text.trimEnd()}\n${line}\n`;
   fs.writeFileSync(envFilePath, next);
+}
+
+export function persistMtoken(token) {
+  config.mtoken = token;
+  persistEnvVar("BNI_MTOKEN", token);
+}
+
+export function persistCookie(cookieHeader) {
+  config.cookie = cookieHeader;
+  persistEnvVar("BNI_COOKIE", cookieHeader);
 }
