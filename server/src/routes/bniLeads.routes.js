@@ -1,13 +1,8 @@
 import { Router } from "express";
-import path from "path";
-import { fileURLToPath } from "url";
 import BniLead from "../models/BniLead.js";
 import { config } from "../config.js";
 import { auth, requireAdmin } from "../middleware/auth.js";
 import { importBniLeadsFromCsv, upsertBniLeadRows } from "../services/importBniLeads.js";
-
-const __dirname = path.dirname(fileURLToPath(import.meta.url));
-const defaultCsvPath = path.join(__dirname, "../scripts/bniScraper/output/bni_leads.csv");
 
 const r = Router();
 
@@ -74,11 +69,13 @@ r.get("/stats", async (req, res) => {
   });
 });
 
-// re-reads the scraper's CSV output and upserts into Mongo — lets the admin
-// pull in whatever the background scrape has written so far, on demand.
+// Manual fallback: re-reads a CSV export (e.g. from the scraper repo's
+// output/bni_leads.csv) and upserts into Mongo. Not the primary data path
+// anymore — the scraper pushes leads live via POST /ingest above.
 r.post("/import", async (req, res) => {
+  if (!req.body?.csvPath) return res.status(400).json({ error: "Body must be { csvPath: '...' }" });
   try {
-    const result = await importBniLeadsFromCsv(req.body?.csvPath || defaultCsvPath);
+    const result = await importBniLeadsFromCsv(req.body.csvPath);
     res.json({ ok: true, ...result });
   } catch (e) {
     res.status(500).json({ ok: false, error: e.message });

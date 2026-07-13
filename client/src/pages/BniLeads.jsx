@@ -28,7 +28,7 @@ export default function BniLeads() {
   const [contact, setContact] = useState("");
   const [q, setQ] = useState("");
   const [page, setPage] = useState(1);
-  const [importing, setImporting] = useState(false);
+  const [refreshing, setRefreshing] = useState(false);
   const limit = 50;
 
   const load = async () => {
@@ -46,16 +46,14 @@ export default function BniLeads() {
 
   const onSearch = (e) => { e.preventDefault(); setPage(1); load(); };
 
-  const runImport = async () => {
-    setImporting(true);
+  // Leads arrive continuously via the scraper's live push (POST /ingest) —
+  // this just re-pulls the current DB state into view, no CSV import needed.
+  const refresh = async () => {
+    setRefreshing(true);
     try {
-      const { data } = await api.post("/bni-leads/import");
       await Promise.all([load(), loadStats()]);
-      alert(`Imported ${data.imported} new, updated ${data.updated}. Total in DB: ${data.total}.`);
-    } catch (e) {
-      alert(e.response?.data?.error || "Import failed");
     } finally {
-      setImporting(false);
+      setRefreshing(false);
     }
   };
 
@@ -73,8 +71,8 @@ export default function BniLeads() {
             <Search size={16} className="absolute left-3 top-2.5 text-gray-400" />
             <input className="input w-56" style={{ paddingLeft: "2.25rem" }} placeholder="Search name / company / email…" value={q} onChange={(e) => setQ(e.target.value)} />
           </form>
-          <button className="btn btn-dark" onClick={runImport} disabled={importing}>
-            <RefreshCw size={16} /> {importing ? "Importing…" : "Import from scrape"}
+          <button className="btn btn-dark" onClick={refresh} disabled={refreshing}>
+            <RefreshCw size={16} /> {refreshing ? "Refreshing…" : "Refresh"}
           </button>
         </div>
       </div>
