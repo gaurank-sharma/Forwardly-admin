@@ -2,13 +2,37 @@ import { Router } from "express";
 import path from "path";
 import { fileURLToPath } from "url";
 import BniLead from "../models/BniLead.js";
+import { config } from "../config.js";
 import { auth, requireAdmin } from "../middleware/auth.js";
-import { importBniLeadsFromCsv } from "../services/importBniLeads.js";
+import { importBniLeadsFromCsv, upsertBniLeadRows } from "../services/importBniLeads.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const defaultCsvPath = path.join(__dirname, "../scripts/bniScraper/output/bni_leads.csv");
 
 const r = Router();
+
+// External-job ingestion (e.g. a deployed scraper/DAG pushing rows directly)
+// — protected by a shared secret via ?key= or x-cron-key, same pattern as
+// /api/cron/run, since an automated job has no admin JWT to send. Registered
+// before the auth/requireAdmin gate below so it bypasses user auth entirely.
+// Body: { rows: [ {industry_keyword, user_id, display_name, ...}, ... ] }
+// using the same flat field names the scraper's CSV_COLUMNS produce.
+r.post("/ingest", async (req, res) => {
+  const key = req.query.key || req.headers["x-cron-key"];
+  if (!config.bniIngestSecret || key !== config.bniIngestSecret)
+    return res.status(401).json({ error: "Unauthorized" });
+
+  const rows = Array.isArray(req.body?.rows) ? req.body.rows : null;
+  if (!rows) return res.status(400).json({ error: "Body must be { rows: [...] }" });
+
+  try {
+    const result = await upsertBniLeadRows(rows);
+    res.json({ ok: true, ...result });
+  } catch (e) {
+    res.status(500).json({ ok: false, error: e.message });
+  }
+});
+
 r.use(auth);
 r.use(requireAdmin);
 

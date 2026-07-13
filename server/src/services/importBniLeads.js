@@ -45,16 +45,20 @@ function parseCsv(text) {
   return rows;
 }
 
-const bool = (v) => String(v).toLowerCase() === "true";
-const num = (v) => (v === "" || v === undefined ? undefined : Number(v));
+const bool = (v) => (typeof v === "boolean" ? v : String(v).toLowerCase() === "true");
+const num = (v) => (v === "" || v === undefined || v === null ? undefined : Number(v));
 
-function rowToDoc(cols, values) {
-  const r = Object.fromEntries(cols.map((c, i) => [c, values[i] ?? ""]));
-  let rawProfile = null;
-  try {
-    rawProfile = r.raw_profile_json ? JSON.parse(r.raw_profile_json) : null;
-  } catch {
-    rawProfile = null;
+// Accepts one flat row object keyed by the scraper's CSV_COLUMNS names
+// (industry_keyword, user_id, ...) — same shape whether it came from a
+// parsed CSV line or a JSON payload posted directly by an external job.
+export function mapRowToDoc(r) {
+  let rawProfile = r.raw_profile ?? null;
+  if (!rawProfile && r.raw_profile_json) {
+    try {
+      rawProfile = JSON.parse(r.raw_profile_json);
+    } catch {
+      rawProfile = null;
+    }
   }
 
   return {
@@ -86,23 +90,18 @@ function rowToDoc(cols, values) {
     postcode: r.postcode,
     memberChapter: r.member_chapter,
     memberChapterId: num(r.member_chapter_id),
-    mspStatus: r.msp_status === "" ? undefined : bool(r.msp_status),
+    mspStatus: r.msp_status === "" || r.msp_status === undefined ? undefined : bool(r.msp_status),
     rawProfile,
   };
 }
 
-export async function importBniLeadsFromCsv(csvPath) {
-  const text = fs.readFileSync(csvPath, "utf8");
-  const rows = parseCsv(text).filter((r) => r.length > 1 || r[0] !== "");
-  if (!rows.length) return { imported: 0, updated: 0, total: 0 };
-
-  const [header, ...dataRows] = rows;
+export async function upsertBniLeadRows(rows) {
   let imported = 0;
   let updated = 0;
 
-  for (const values of dataRows) {
-    if (!values[header.indexOf("user_id")]) continue;
-    const doc = rowToDoc(header, values);
+  for (const r of rows) {
+    if (!r.user_id) continue;
+    const doc = mapRowToDoc(r);
     const result = await BniLead.updateOne({ userId: doc.userId }, { $set: doc }, { upsert: true });
     if (result.upsertedCount) imported += 1;
     else if (result.modifiedCount) updated += 1;
@@ -110,4 +109,14 @@ export async function importBniLeadsFromCsv(csvPath) {
 
   const total = await BniLead.countDocuments();
   return { imported, updated, total };
+}
+
+export async function importBniLeadsFromCsv(csvPath) {
+  const text = fs.readFileSync(csvPath, "utf8");
+  const parsed = parseCsv(text).filter((r) => r.length > 1 || r[0] !== "");
+  if (!parsed.length) return { imported: 0, updated: 0, total: 0 };
+
+  const [header, ...dataRows] = parsed;
+  const rows = dataRows.map((values) => Object.fromEntries(header.map((c, i) => [c, values[i] ?? ""])));
+  return upsertBniLeadRows(rows);
 }

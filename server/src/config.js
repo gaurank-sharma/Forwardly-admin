@@ -17,6 +17,7 @@ export const config = {
   ingestCron: process.env.INGEST_CRON || "0 3 * * *",
   timezone: process.env.TIMEZONE || "Asia/Kolkata",
   cronSecret: process.env.CRON_SECRET || "",
+  bniIngestSecret: process.env.BNI_INGEST_SECRET || "",
   anthropicKey: process.env.ANTHROPIC_API_KEY || "",
   openaiKey: process.env.OPENAI_API_KEY || "",
 };
