@@ -1,22 +1,26 @@
 import { Router } from "express";
 import BniLead from "../models/BniLead.js";
+import ScrapeProgress from "../models/ScrapeProgress.js";
 import { config } from "../config.js";
 import { auth, requireAdmin } from "../middleware/auth.js";
 import { importBniLeadsFromCsv, upsertBniLeadRows } from "../services/importBniLeads.js";
 
 const r = Router();
 
-// External-job ingestion (e.g. a deployed scraper/DAG pushing rows directly)
-// — protected by a shared secret via ?key= or x-cron-key, same pattern as
-// /api/cron/run, since an automated job has no admin JWT to send. Registered
-// before the auth/requireAdmin gate below so it bypasses user auth entirely.
-// Body: { rows: [ {industry_keyword, user_id, display_name, ...}, ... ] }
-// using the same flat field names the scraper's CSV_COLUMNS produce.
-r.post("/ingest", async (req, res) => {
+function requireIngestSecret(req, res, next) {
   const key = req.query.key || req.headers["x-cron-key"];
   if (!config.bniIngestSecret || key !== config.bniIngestSecret)
     return res.status(401).json({ error: "Unauthorized" });
+  next();
+}
 
+// External-job ingestion (e.g. a deployed scraper/DAG pushing rows directly)
+// — protected by a shared secret, same pattern as /api/cron/run, since an
+// automated job has no admin JWT to send. Registered before the
+// auth/requireAdmin gate below so these bypass user auth entirely.
+// Body: { rows: [ {industry_keyword, user_id, display_name, ...}, ... ] }
+// using the same flat field names the scraper's CSV_COLUMNS produce.
+r.post("/ingest", requireIngestSecret, async (req, res) => {
   const rows = Array.isArray(req.body?.rows) ? req.body.rows : null;
   if (!rows) return res.status(400).json({ error: "Body must be { rows: [...] }" });
 
@@ -26,6 +30,32 @@ r.post("/ingest", async (req, res) => {
   } catch (e) {
     res.status(500).json({ ok: false, error: e.message });
   }
+});
+
+// Scrape progress (per-industry nextPage/done), stored here instead of the
+// scraper's own local disk — that disk isn't guaranteed to survive a
+// redeploy of the scraper's hosting, so relying on it meant every deploy
+// reset progress back to page 1. This database survives regardless.
+r.get("/scrape-progress", requireIngestSecret, async (req, res) => {
+  const doc = await ScrapeProgress.findOne({ key: "bni-scraper" }).lean();
+  res.json({ industries: doc?.industries || {} });
+});
+
+r.post("/scrape-progress", requireIngestSecret, async (req, res) => {
+  const industries = req.body?.industries;
+  if (!industries || typeof industries !== "object") {
+    return res.status(400).json({ error: "Body must be { industries: {...} }" });
+  }
+  await ScrapeProgress.updateOne({ key: "bni-scraper" }, { $set: { industries } }, { upsert: true });
+  res.json({ ok: true });
+});
+
+// All user_ids already stored — lets the scraper dedupe against everything
+// ever found (across every deploy/machine that's ever run it), not just
+// whatever a single instance happened to process locally.
+r.get("/known-user-ids", requireIngestSecret, async (req, res) => {
+  const ids = await BniLead.distinct("userId");
+  res.json({ userIds: ids });
 });
 
 r.use(auth);
