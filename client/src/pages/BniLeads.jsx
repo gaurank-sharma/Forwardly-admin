@@ -18,6 +18,12 @@ const TRI = [
   { k: "no", label: "No" },
 ];
 
+const SEARCH_TYPES = [
+  { k: "company", label: "Company", placeholder: "Search company name…" },
+  { k: "phone", label: "Phone", placeholder: "Search phone number…" },
+  { k: "email", label: "Email", placeholder: "Search email…" },
+];
+
 export default function BniLeads() {
   const [items, setItems] = useState([]);
   const [total, setTotal] = useState(0);
@@ -30,14 +36,16 @@ export default function BniLeads() {
   const [hasPhone, setHasPhone] = useState("");
   const [hasWebsite, setHasWebsite] = useState("");
   const [nationality, setNationality] = useState("");
-  const [q, setQ] = useState("");
+  const [searchType, setSearchType] = useState("company");
+  const [searchValue, setSearchValue] = useState("");
   const [page, setPage] = useState(1);
   const [refreshing, setRefreshing] = useState(false);
   const limit = 50;
 
   const load = async () => {
+    const searchParam = searchValue.trim() ? { [searchType]: searchValue.trim() } : {};
     const { data } = await api.get("/bni-leads", {
-      params: { industry, contact, hasEmail, hasPhone, hasWebsite, nationality, q, page, limit },
+      params: { industry, contact, hasEmail, hasPhone, hasWebsite, nationality, page, limit, ...searchParam },
     });
     setItems(data.items);
     setTotal(data.total);
@@ -78,9 +86,21 @@ export default function BniLeads() {
           <p className="text-sm text-gray-500">Business-networking contacts scraped from BNI Connect · separate from CRM leads</p>
         </div>
         <div className="flex items-center gap-2">
-          <form onSubmit={onSearch} className="relative">
-            <Search size={16} className="absolute left-3 top-2.5 text-gray-400" />
-            <input className="input w-56" style={{ paddingLeft: "2.25rem" }} placeholder="Search name / company / email…" value={q} onChange={(e) => setQ(e.target.value)} />
+          <form onSubmit={onSearch} className="flex items-center gap-1.5">
+            <select className="input" style={{ width: 100 }} value={searchType} onChange={(e) => setSearchType(e.target.value)}>
+              {SEARCH_TYPES.map((t) => <option key={t.k} value={t.k}>{t.label}</option>)}
+            </select>
+            <div className="relative">
+              <Search size={16} className="absolute left-3 top-2.5 text-gray-400" />
+              <input
+                className="input w-56"
+                style={{ paddingLeft: "2.25rem" }}
+                placeholder={SEARCH_TYPES.find((t) => t.k === searchType)?.placeholder}
+                value={searchValue}
+                onChange={(e) => setSearchValue(e.target.value)}
+              />
+            </div>
+            <button type="submit" className="btn btn-ghost">Search</button>
           </form>
           <button className="btn btn-dark" onClick={refresh} disabled={refreshing}>
             <RefreshCw size={16} /> {refreshing ? "Refreshing…" : "Refresh"}

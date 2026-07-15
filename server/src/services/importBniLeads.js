@@ -56,6 +56,24 @@ function computeIsIndian(country) {
   return c === "india" || c === "in";
 }
 
+const digitsOnly = (v) => String(v || "").replace(/\D/g, "");
+
+// Anchored ("starts with") prefix matching is what lets phone search use an
+// index at scale, but most people search a local number without the
+// country code while it's stored WITH one (e.g. "918800907231"). Index
+// both the full digits and the last-10 local-only version so a prefix
+// search matches whether or not the searcher includes the country code.
+function phoneVariants(...numbers) {
+  const variants = new Set();
+  for (const n of numbers) {
+    const d = digitsOnly(n);
+    if (!d) continue;
+    variants.add(d);
+    if (d.length > 10) variants.add(d.slice(-10));
+  }
+  return [...variants];
+}
+
 // Accepts one flat row object keyed by the scraper's CSV_COLUMNS names
 // (industry_keyword, user_id, ...) — same shape whether it came from a
 // parsed CSV line or a JSON payload posted directly by an external job.
@@ -82,16 +100,21 @@ export function mapRowToDoc(r) {
     phoneNumber: r.phone_number,
     mobileNumber: r.mobile_number,
     emailAddress: r.email_address,
+    emailLower: String(r.email_address || "").trim().toLowerCase(),
     websiteUrl: r.website_url,
     contactAvailable: bool(r.contact_available),
     hasEmail: Boolean(r.email_address),
     hasPhone: Boolean(r.phone_number || r.mobile_number),
     hasWebsite: Boolean(r.website_url),
     isIndian: computeIsIndian(r.country),
+    // Array so an anchored prefix search matches against either number,
+    // with or without the searcher including the country code.
+    phoneDigits: phoneVariants(r.phone_number, r.mobile_number),
     primaryCategory: r.primary_category,
     secondaryCategory: r.secondary_category,
     requiredSpeciality: r.required_speciality,
     companyName: r.company_name,
+    companyNameLower: String(r.company_name || "").trim().toLowerCase(),
     business: r.business,
     keywords: r.keywords,
     addressLine1: r.address_line1,

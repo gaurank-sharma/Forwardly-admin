@@ -20,6 +20,17 @@ const bniLeadSchema = new mongoose.Schema(
     mobileNumber: { type: String, default: "" },
     emailAddress: { type: String, default: "", index: true },
     websiteUrl: { type: String, default: "" },
+    // Normalized copies for fast indexed search — digits-only phone and
+    // lowercased email/company let search use an anchored (prefix) regex,
+    // which unlike an unanchored substring regex CAN use a B-tree index.
+    // Unanchored "contains anywhere" search across 4 text columns is a
+    // full collection scan once this crosses tens of thousands of rows.
+    // phoneDigits is an array (phone + mobile, whichever are present) —
+    // MongoDB indexes each element separately (multikey index), so an
+    // anchored prefix search still uses the index against either number.
+    phoneDigits: { type: [String], default: [], index: true },
+    emailLower: { type: String, default: "", index: true },
+    companyNameLower: { type: String, default: "", index: true },
     contactAvailable: { type: Boolean, default: false, index: true },
     // Computed booleans, precomputed at write time so filtering at 30-40k+
     // scale is a fast indexed lookup instead of a regex/existence scan.

@@ -67,8 +67,14 @@ function boolParam(v) {
   return undefined;
 }
 
+const escapeRegex = (s) => s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+
 r.get("/", async (req, res) => {
-  const { industry, contact, q, chapter, hasEmail, hasPhone, hasWebsite, nationality, page = 1, limit = 50 } = req.query;
+  const {
+    industry, contact, chapter, hasEmail, hasPhone, hasWebsite, nationality,
+    phone, email, company,
+    page = 1, limit = 50,
+  } = req.query;
   const query = {};
   if (industry) query.industryKeyword = industry;
   if (chapter) query.memberChapter = chapter;
@@ -79,19 +85,34 @@ r.get("/", async (req, res) => {
   if (boolParam(hasWebsite) !== undefined) query.hasWebsite = boolParam(hasWebsite);
   if (nationality === "indian") query.isIndian = true;
   else if (nationality === "foreign") query.isIndian = false;
-  if (q) {
-    query.$or = [
-      { displayName: new RegExp(q, "i") },
-      { companyName: new RegExp(q, "i") },
-      { emailAddress: new RegExp(q, "i") },
-      { phoneNumber: new RegExp(q, "i") },
-    ];
+
+  // Three targeted, indexed searches instead of one generic regex $or across
+  // 4 text columns — that becomes a full collection scan once this crosses
+  // tens of thousands of rows. Each of these uses a real index:
+  //   - phone: anchored prefix against a digits-only multikey array index
+  //   - email: anchored prefix against a lowercased indexed field
+  //   - company: MongoDB text index (word-based, matches anywhere, indexed)
+  if (phone) {
+    const digits = phone.replace(/\D/g, "");
+    if (digits) query.phoneDigits = { $regex: "^" + escapeRegex(digits) };
+  }
+  if (email) {
+    query.emailLower = { $regex: "^" + escapeRegex(email.trim().toLowerCase()) };
+  }
+  if (company) {
+    query.$text = { $search: company };
   }
 
   const lim = Math.min(Number(limit), 200);
   const skip = (Number(page) - 1) * lim;
+
+  // A text search should rank by relevance, not insertion date, or the
+  // best match can end up buried on page 3.
+  const projection = company ? { score: { $meta: "textScore" } } : null;
+  const sort = company ? { score: { $meta: "textScore" } } : { createdAt: -1 };
+
   const [items, total] = await Promise.all([
-    BniLead.find(query).sort({ createdAt: -1 }).skip(skip).limit(lim),
+    BniLead.find(query, projection).sort(sort).skip(skip).limit(lim),
     BniLead.countDocuments(query),
   ]);
   res.json({ items, total, page: Number(page), limit: lim });
