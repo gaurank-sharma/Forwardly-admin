@@ -1,4 +1,5 @@
 import mongoose from "mongoose";
+import { bniConnection } from "../bniDb.js";
 
 // Singleton doc holding the BNI scraper's per-industry page progress.
 // Exists so progress survives redeploys of the scraper's own (ephemeral)
@@ -12,4 +13,4 @@ const scrapeProgressSchema = new mongoose.Schema(
   { timestamps: true }
 );
 
-export default mongoose.model("ScrapeProgress", scrapeProgressSchema);
+export default bniConnection.model("ScrapeProgress", scrapeProgressSchema);

@@ -5,6 +5,7 @@ import path from "path";
 import { fileURLToPath } from "url";
 import { config } from "./config.js";
 import { connectDB } from "./db.js";
+import { ensureBniConnected } from "./bniDb.js";
 import { scheduleCron } from "./jobs/cron.js";
 
 import authRoutes from "./routes/auth.routes.js";
@@ -52,6 +53,7 @@ app.use((err, req, res, next) => {
 
 async function start() {
   await connectDB();
+  await ensureBniConnected();
   scheduleCron();
   app.listen(config.port, () => console.log(`[server] http://localhost:${config.port}`));
 }

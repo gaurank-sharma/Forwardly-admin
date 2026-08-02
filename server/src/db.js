@@ -1,18 +1,6 @@
-import dns from "node:dns";
+import "./dnsFix.js";
 import mongoose from "mongoose";
 import { config } from "./config.js";
-
-/**
- * Many ISP/Wi-Fi resolvers (common in India) fail the SRV/TXT DNS lookups that
- * `mongodb+srv://` requires, causing "querySrv ENOTFOUND / ETIMEOUT". We force
- * Node's resolver to use public DNS (Cloudflare + Google) and prefer IPv4.
- */
-try {
-  dns.setServers(["1.1.1.1", "1.0.0.1", "8.8.8.8", "8.8.4.4"]);
-  dns.setDefaultResultOrder?.("ipv4first");
-} catch {
-  /* ignore */
-}
 
 export async function connectDB() {
   if (!config.mongoUri) {

@@ -1,4 +1,5 @@
 import mongoose from "mongoose";
+import { bniConnection } from "../bniDb.js";
 
 // Scraped from BNI Connect (separate source/purpose from the Google-Places
 // Lead model — these are business-networking contacts, not client leads).
@@ -67,4 +68,4 @@ bniLeadSchema.index({ companyName: "text", displayName: "text", business: "text"
 bniLeadSchema.index({ industryKeyword: 1, hasEmail: 1, hasPhone: 1 });
 bniLeadSchema.index({ isIndian: 1, industryKeyword: 1 });
 
-export default mongoose.model("BniLead", bniLeadSchema);
+export default bniConnection.model("BniLead", bniLeadSchema);

@@ -6,6 +6,12 @@ export const config = {
   clientOrigin: process.env.CLIENT_ORIGIN || "https://forwardly-admin.vercel.app",
   jwtSecret: process.env.JWT_SECRET || "dev-secret-change-me",
   mongoUri: process.env.MONGODB_URI || "",
+  // Separate cluster dedicated to BNI data (BniLead + ScrapeProgress) — the
+  // original cluster filled up, so this data domain now lives on its own
+  // connection instead of competing with the core CRM's Lead/User data.
+  // Falls back to the main mongoUri if unset, so nothing breaks if this is
+  // ever left blank.
+  bniMongoUri: process.env.BNI_MONGODB_URI || "",
   admin: {
     name: process.env.ADMIN_NAME || "Super Admin",
     email: (process.env.ADMIN_EMAIL || "admin@forwardly.in").toLowerCase(),

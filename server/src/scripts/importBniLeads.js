@@ -1,6 +1,5 @@
 import "dotenv/config";
-import mongoose from "mongoose";
-import { connectDB } from "../db.js";
+import { ensureBniConnected, bniConnection } from "../bniDb.js";
 import { importBniLeadsFromCsv } from "../services/importBniLeads.js";
 
 const csvPath = process.argv[2];
@@ -13,10 +12,10 @@ async function run() {
     console.error("Usage: node src/scripts/importBniLeads.js <path-to-bni_leads.csv>");
     process.exit(1);
   }
-  await connectDB();
+  await ensureBniConnected();
   const result = await importBniLeadsFromCsv(csvPath);
   console.log(`Imported ${result.imported} new, updated ${result.updated}, total ${result.total} in DB.`);
-  await mongoose.disconnect();
+  await bniConnection.close();
   process.exit(0);
 }
 
