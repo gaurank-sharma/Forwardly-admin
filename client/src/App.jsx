@@ -8,6 +8,8 @@ import Script from "./pages/Script.jsx";
 import Agents from "./pages/Agents.jsx";
 import DayConfig from "./pages/DayConfig.jsx";
 import BniLeads from "./pages/BniLeads.jsx";
+import Onboarding from "./pages/Onboarding.jsx";
+import OnboardingDetail from "./pages/OnboardingDetail.jsx";
 
 function Protected({ children }) {
   const { user, loading } = useAuth();
@@ -38,6 +40,8 @@ export default function App() {
         <Route path="/agents" element={<AdminOnly><Agents /></AdminOnly>} />
         <Route path="/config" element={<AdminOnly><DayConfig /></AdminOnly>} />
         <Route path="/bni-data" element={<AdminOnly><BniLeads /></AdminOnly>} />
+        <Route path="/onboarding" element={<AdminOnly><Onboarding /></AdminOnly>} />
+        <Route path="/onboarding/:id" element={<AdminOnly><OnboardingDetail /></AdminOnly>} />
       </Route>
       <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>

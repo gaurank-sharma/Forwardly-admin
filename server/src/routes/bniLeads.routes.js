@@ -1,11 +1,27 @@
 import { Router } from "express";
 import BniLead from "../models/BniLead.js";
+import BniLeadOld from "../models/BniLeadOld.js";
 import ScrapeProgress from "../models/ScrapeProgress.js";
 import { config } from "../config.js";
 import { auth, requireAdmin } from "../middleware/auth.js";
 import { importBniLeadsFromCsv, upsertBniLeadRows } from "../services/importBniLeads.js";
 
 const r = Router();
+
+// db1 = the original cluster (everything scraped before it filled up —
+// real estate/interior designer/construction here is a frozen snapshot as
+// of the migration; the other 32 industries only ever lived here).
+// db2 = the dedicated cluster real estate/interior designer/construction
+// actively grow on now. "all" shows both, tagged by source — note that for
+// the 3 migrated industries this means the same person can appear twice
+// (once as the frozen db1 snapshot, once as the live db2 copy); that's
+// intentional transparency, not a bug, since db1 is otherwise untouched
+// history and not something to silently hide or dedupe away.
+function modelsForSource(source) {
+  if (source === "db1") return [["db1", BniLeadOld]];
+  if (source === "db2") return [["db2", BniLead]];
+  return [["db1", BniLeadOld], ["db2", BniLead]];
+}
 
 function requireIngestSecret(req, res, next) {
   const key = req.query.key || req.headers["x-cron-key"];
@@ -72,7 +88,7 @@ const escapeRegex = (s) => s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 r.get("/", async (req, res) => {
   const {
     industry, contact, chapter, hasEmail, hasPhone, hasWebsite, nationality,
-    phone, email, company,
+    phone, email, company, source = "all",
     page = 1, limit = 50,
   } = req.query;
   const query = {};
@@ -111,40 +127,79 @@ r.get("/", async (req, res) => {
   const projection = company ? { score: { $meta: "textScore" } } : null;
   const sort = company ? { score: { $meta: "textScore" } } : { createdAt: -1 };
 
-  const [items, total] = await Promise.all([
-    BniLead.find(query, projection).sort(sort).skip(skip).limit(lim),
-    BniLead.countDocuments(query),
-  ]);
+  // Cross-cluster pagination has no single sorted cursor, so each source is
+  // asked for its own top (skip+lim) matches, tagged, merged, re-sorted,
+  // then sliced to the requested page. Correct for the page depths an admin
+  // dashboard actually gets used at; re-fetches skip+lim per source rather
+  // than true offset pagination, which would need a cross-cluster $lookup
+  // MongoDB doesn't support — an acceptable tradeoff here, not a mistake.
+  const targets = modelsForSource(source);
+  const perSource = await Promise.all(
+    targets.map(async ([tag, Model]) => {
+      const [docs, count] = await Promise.all([
+        Model.find(query, projection).sort(sort).limit(skip + lim).lean(),
+        Model.countDocuments(query),
+      ]);
+      return { tag, docs: docs.map((d) => ({ ...d, source: tag })), count };
+    })
+  );
+
+  const total = perSource.reduce((sum, s) => sum + s.count, 0);
+  const merged = perSource.flatMap((s) => s.docs);
+  merged.sort((a, b) =>
+    company ? (b.score || 0) - (a.score || 0) : new Date(b.createdAt) - new Date(a.createdAt)
+  );
+  const items = merged.slice(skip, skip + lim);
+
   res.json({ items, total, page: Number(page), limit: lim });
 });
 
 r.get("/stats", async (req, res) => {
-  const [total, withContact, hasEmail, hasPhone, hasWebsite, foreign, byIndustry] = await Promise.all([
-    BniLead.countDocuments(),
-    BniLead.countDocuments({ contactAvailable: true }),
-    BniLead.countDocuments({ hasEmail: true }),
-    BniLead.countDocuments({ hasPhone: true }),
-    BniLead.countDocuments({ hasWebsite: true }),
-    BniLead.countDocuments({ isIndian: false }),
-    BniLead.aggregate([{ $group: { _id: "$industryKeyword", n: { $sum: 1 } } }]),
-  ]);
+  const { source = "all" } = req.query;
+  const targets = modelsForSource(source);
+
+  const perSource = await Promise.all(
+    targets.map(async ([tag, Model]) => {
+      const [total, withContact, hasEmail, hasPhone, hasWebsite, foreign, byIndustry] = await Promise.all([
+        Model.countDocuments(),
+        Model.countDocuments({ contactAvailable: true }),
+        Model.countDocuments({ hasEmail: true }),
+        Model.countDocuments({ hasPhone: true }),
+        Model.countDocuments({ hasWebsite: true }),
+        Model.countDocuments({ isIndian: false }),
+        Model.aggregate([{ $group: { _id: "$industryKeyword", n: { $sum: 1 } } }]),
+      ]);
+      return { tag, total, withContact, hasEmail, hasPhone, hasWebsite, foreign, byIndustry };
+    })
+  );
+
+  const sum = (key) => perSource.reduce((s, p) => s + p[key], 0);
+  const byIndustry = {};
+  for (const p of perSource) {
+    for (const b of p.byIndustry) byIndustry[b._id || "unknown"] = (byIndustry[b._id || "unknown"] || 0) + b.n;
+  }
+
   res.json({
-    total,
-    withContact,
-    hasEmail,
-    hasPhone,
-    hasWebsite,
-    indian: total - foreign,
-    foreign,
-    byIndustry: Object.fromEntries(byIndustry.map((b) => [b._id || "unknown", b.n])),
+    total: sum("total"),
+    withContact: sum("withContact"),
+    hasEmail: sum("hasEmail"),
+    hasPhone: sum("hasPhone"),
+    hasWebsite: sum("hasWebsite"),
+    indian: sum("total") - sum("foreign"),
+    foreign: sum("foreign"),
+    byIndustry,
+    bySource: Object.fromEntries(perSource.map((p) => [p.tag, p.total])),
   });
 });
 
-// Distinct industry list actually present in the DB, for the filter dropdown
-// — safer than a hardcoded list now that there are 35+ possible keywords.
+// Distinct industry list actually present across whichever source(s) are in
+// scope, for the filter dropdown.
 r.get("/industries", async (req, res) => {
-  const industries = await BniLead.distinct("industryKeyword");
-  res.json({ industries: industries.filter(Boolean).sort() });
+  const { source = "all" } = req.query;
+  const targets = modelsForSource(source);
+  const lists = await Promise.all(targets.map(([, Model]) => Model.distinct("industryKeyword")));
+  const industries = [...new Set(lists.flat())].filter(Boolean).sort();
+  res.json({ industries });
 });
 
 // Manual fallback: re-reads a CSV export (e.g. from the scraper repo's

@@ -1,5 +1,5 @@
 import { NavLink, Outlet } from "react-router-dom";
-import { LayoutDashboard, Users, CalendarCog, Flame, ScrollText, LogOut, Power, Menu, X, Network } from "lucide-react";
+import { LayoutDashboard, Users, CalendarCog, Flame, ScrollText, LogOut, Power, Menu, X, Network, ClipboardCheck } from "lucide-react";
 import { useState } from "react";
 import { useAuth } from "../lib/auth.jsx";
 import api from "../lib/api";
@@ -11,6 +11,7 @@ const nav = [
   { to: "/agents", label: "Agents", icon: Users, admin: true },
   { to: "/config", label: "Day Plan", icon: CalendarCog, admin: true },
   { to: "/bni-data", label: "BNI Data", icon: Network, admin: true },
+  { to: "/onboarding", label: "Onboarding", icon: ClipboardCheck, admin: true },
 ];
 
 export default function Layout() {

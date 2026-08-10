@@ -15,6 +15,7 @@ import leadRoutes from "./routes/leads.routes.js";
 import statsRoutes from "./routes/stats.routes.js";
 import cronRoutes from "./routes/cron.routes.js";
 import bniLeadsRoutes from "./routes/bniLeads.routes.js";
+import onboardingRoutes from "./routes/onboarding.routes.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
@@ -45,6 +46,7 @@ app.use("/api/leads", leadRoutes);
 app.use("/api/stats", statsRoutes);
 app.use("/api/cron", cronRoutes);
 app.use("/api/bni-leads", bniLeadsRoutes);
+app.use("/api/onboarding", onboardingRoutes);
 
 app.use((err, req, res, next) => {
   console.error(err);
