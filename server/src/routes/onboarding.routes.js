@@ -16,6 +16,8 @@ const storage = multer.diskStorage({
 });
 const upload = multer({ storage, limits: { fileSize: 10 * 1024 * 1024 } });
 
+const PLANS = ["9k", "15k", "20k"];
+
 const r = Router();
 
 // ---------------------------------------------------------------------
@@ -43,7 +45,11 @@ r.patch("/public/:token", async (req, res) => {
   const doc = await Onboarding.findOne({ token: req.params.token });
   if (!doc) return res.status(404).json({ error: "Not found" });
 
-  const { profileFields, likesDemo, demoFeedback, sections } = req.body || {};
+  const { profileFields, likesDemo, demoFeedback, sections, plan } = req.body || {};
+
+  // The client can change their own plan on the wizard's plan-choice step —
+  // still just one of the three fixed tiers, no free-text price tampering.
+  if (plan && PLANS.includes(plan)) doc.plan = plan;
 
   if (Array.isArray(profileFields)) {
     for (const incoming of profileFields) {
@@ -118,8 +124,8 @@ r.get("/", async (req, res) => {
 
 r.post("/", requireAdmin, async (req, res) => {
   const { leadId, plan } = req.body;
-  if (!leadId || !["9k", "15k"].includes(plan)) {
-    return res.status(400).json({ error: "Body must be { leadId, plan: '9k'|'15k' }" });
+  if (!leadId || !PLANS.includes(plan)) {
+    return res.status(400).json({ error: "Body must be { leadId, plan: '9k'|'15k'|'20k' }" });
   }
   const lead = await Lead.findById(leadId);
   if (!lead) return res.status(404).json({ error: "Lead not found" });

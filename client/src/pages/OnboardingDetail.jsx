@@ -214,6 +214,7 @@ export default function OnboardingDetail() {
           <select className="input" value={doc.plan} onChange={(e) => setDoc({ ...doc, plan: e.target.value })}>
             <option value="9k">₹9,000</option>
             <option value="15k">₹15,000</option>
+            <option value="20k">₹20,000</option>
           </select>
         </div>
         <div>

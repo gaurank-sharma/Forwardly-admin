@@ -11,6 +11,7 @@ const STATUS_TONE = {
 };
 
 const PUBLIC_ORIGIN = import.meta.env.VITE_FORWARDLY_SITE_ORIGIN || "https://forwardly.in";
+const PLAN_LABEL = { "9k": "9,000", "15k": "15,000", "20k": "20,000" };
 
 function NewOnboardingModal({ onClose, onCreated }) {
   const [q, setQ] = useState("");
@@ -79,13 +80,13 @@ function NewOnboardingModal({ onClose, onCreated }) {
               <button className="mt-1 text-xs text-[#6d8b00]" onClick={() => setLead(null)}>Change lead</button>
             </div>
             <div className="mb-4 flex gap-2">
-              {["9k", "15k"].map((p) => (
+              {["9k", "15k", "20k"].map((p) => (
                 <button
                   key={p}
                   onClick={() => setPlan(p)}
                   className={`flex-1 rounded-lg border px-3 py-2 text-sm font-semibold ${plan === p ? "border-[#0a0a0b] bg-[#0a0a0b] text-white" : "border-gray-200 text-gray-600"}`}
                 >
-                  ₹{p === "9k" ? "9,000" : "15,000"} plan
+                  ₹{PLAN_LABEL[p]} plan
                 </button>
               ))}
             </div>
@@ -135,7 +136,7 @@ export default function Onboarding() {
       <div className="mb-5 flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold">Client Onboarding</h1>
-          <p className="text-sm text-gray-500">Post-demo section-by-section handoff — 9k &amp; 15k plans</p>
+          <p className="text-sm text-gray-500">Post-demo section-by-section handoff — 9k, 15k &amp; 20k plans</p>
         </div>
         <button className="btn btn-dark" onClick={() => setShowNew(true)}><Plus size={16} /> New onboarding</button>
       </div>
@@ -159,7 +160,7 @@ export default function Onboarding() {
                   <Link to={`/onboarding/${o._id}`} className="font-medium hover:text-[#6d8b00]">{o.clientName}</Link>
                   <div className="text-xs text-gray-400">{o.lead?.phone}</div>
                 </td>
-                <td className="px-3 py-3 text-gray-600">₹{o.plan === "9k" ? "9,000" : "15,000"}</td>
+                <td className="px-3 py-3 text-gray-600">₹{PLAN_LABEL[o.plan] || o.plan}</td>
                 <td className="px-3 py-3">
                   <span className={`rounded-full px-2 py-0.5 text-xs font-bold ${STATUS_TONE[o.status]}`}>{o.status.replace("_", " ")}</span>
                 </td>

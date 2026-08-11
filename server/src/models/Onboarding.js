@@ -77,10 +77,9 @@ const onboardingSchema = new mongoose.Schema(
     // for the common case, and survive if the Lead is ever archived.
     clientName: { type: String, required: true },
 
-    // Only these two are onboarded through this flow for now — the
-    // backend-inclusive tiers (16k/20k) are upsells layered on afterward,
-    // not a distinct onboarding path yet.
-    plan: { type: String, enum: ["9k", "15k"], required: true },
+    // Admin sets a starting plan at creation; the client can change it
+    // themselves on the plan-choice step of the public wizard.
+    plan: { type: String, enum: ["9k", "15k", "20k"], required: true },
 
     token: { type: String, required: true, unique: true, index: true, default: () => crypto.randomBytes(20).toString("hex") },
 
