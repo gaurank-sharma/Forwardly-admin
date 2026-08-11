@@ -1,38 +1,62 @@
 import mongoose from "mongoose";
 import crypto from "crypto";
 
-// One question inside a section. `adminPrefill` is set by the admin (from
-// the sales conversation) as a sensible default; `clientAnswer` starts
-// equal to it and is what the client actually edits/confirms on the public
-// onboarding page. Keeping both (not overwriting) lets the admin see what
-// changed from their prefill at a glance.
-const questionSchema = new mongoose.Schema(
+// Admin sets `adminPrefill` from the sales conversation; `clientAnswer`
+// starts null and is what the client actually fills in on the public page.
+// Keeping both (not overwriting) lets the admin see what changed from
+// their prefill at a glance.
+const answerFields = {
+  adminPrefill: { type: mongoose.Schema.Types.Mixed, default: null },
+  clientAnswer: { type: mongoose.Schema.Types.Mixed, default: null },
+};
+
+// Step 1: personal & professional details. Admin pre-fills from the Lead
+// record when the onboarding is created; client can correct anything.
+const profileFieldSchema = new mongoose.Schema(
   {
     key: { type: String, required: true },
     label: { type: String, required: true },
-    type: {
-      type: String,
-      enum: ["yesno", "yesnomaybe", "text", "number", "upload", "multiupload"],
-      default: "yesno",
-    },
-    helpText: { type: String, default: "" },
-    adminPrefill: { type: mongoose.Schema.Types.Mixed, default: null },
-    clientAnswer: { type: mongoose.Schema.Types.Mixed, default: null },
-    // For multiupload: URLs of files the client has attached (replacement
-    // images etc.), served from /uploads same as the existing CRM attachments.
-    uploads: { type: [String], default: [] },
+    type: { type: String, enum: ["text", "tel", "email", "textarea"], default: "text" },
+    required: { type: Boolean, default: true },
+    ...answerFields,
   },
   { _id: false }
 );
 
+// A single yes/no(/maybe) gate question — "keep as is?", "change images?",
+// "do you like the demo?" all use this shape.
+const gateSchema = new mongoose.Schema(answerFields, { _id: false });
+
+// A single free-text answer — "any wording changes?", "what don't you
+// like about the demo?".
+const textAnswerSchema = new mongoose.Schema(answerFields, { _id: false });
+
+// One conditional per-section block:
+//   keepAsIs = "yes"  -> nothing else asked, section done
+//   keepAsIs != "yes" -> ask changeImages (only if imageCount > 0)
+//     changeImages = "yes" -> client picks which of 1..imageCount to
+//                             replace (imagesToChange) and uploads each
+//   contentChanges is always offered once keepAsIs != "yes"
 const sectionSchema = new mongoose.Schema(
   {
     key: { type: String, required: true },
     title: { type: String, required: true },
-    // e.g. "This is the Hero section from your demo." — admin-editable
-    // context shown to the client above this section's questions.
+    // e.g. "This is the Hero section from your demo." — shown to the client.
     description: { type: String, default: "" },
-    questions: { type: [questionSchema], default: [] },
+    // Admin-configurable — how many images this section actually has in the
+    // demo. 0 means the section has no swappable images (e.g. Services).
+    imageCount: { type: Number, default: 0, min: 0 },
+
+    keepAsIs: { type: gateSchema, default: () => ({}) },
+    changeImages: { type: gateSchema, default: () => ({}) },
+    // 1-based indices into the section's imageCount the client wants replaced.
+    imagesToChange: { type: [Number], default: [] },
+    imageUploads: {
+      type: [{ index: { type: Number, required: true }, url: { type: String, required: true } }],
+      default: [],
+      _id: false,
+    },
+    contentChanges: { type: textAnswerSchema, default: () => ({}) },
   },
   { _id: false }
 );
@@ -60,6 +84,14 @@ const onboardingSchema = new mongoose.Schema(
       index: true,
     },
 
+    // Wizard step 1.
+    profileFields: { type: [profileFieldSchema], default: [] },
+    // Wizard step 2: "do you like our demo?" gate, plus optional feedback
+    // text shown when the answer isn't a plain yes.
+    likesDemo: { type: gateSchema, default: () => ({}) },
+    demoFeedback: { type: textAnswerSchema, default: () => ({}) },
+
+    // Wizard steps 3..N, one per demo section.
     sections: { type: [sectionSchema], default: [] },
 
     demoUrl: { type: String, default: "" },

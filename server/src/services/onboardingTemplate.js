@@ -1,71 +1,42 @@
-// Default section/question set for a new onboarding. Generic on purpose —
-// covers the sections almost every demo site has (hero, about, services,
-// portfolio, contact); admin can add/remove/edit sections per client after
-// creation, since not every demo has e.g. a shop section.
+// Default profile fields + section set for a new onboarding. Generic on
+// purpose — covers what almost every demo site has; admin can add/remove/
+// edit per client after creation, since not every demo has e.g. a shop
+// section, and imageCount varies per client's actual demo.
 
-function standardQuestions(sectionLabel, imageCount) {
-  const questions = [
-    {
-      key: "keep_as_is",
-      label: `Can we carry the ${sectionLabel} over from your demo, personalized to your business, as-is?`,
-      type: "yesnomaybe",
-      helpText: "\"Maybe\" if you want changes but aren't sure exactly what yet — we'll follow up on specifics.",
-    },
+// Personal & professional details — the wizard's first page. `prefill` is
+// resolved against the Lead record when the onboarding is created (see
+// onboarding.routes.js), so this stays a template of *fields*, not values.
+export function buildDefaultProfileFields(lead = {}) {
+  return [
+    { key: "business_name", label: "Business name", type: "text", required: true, adminPrefill: lead.name || null },
+    { key: "owner_name", label: "Your name", type: "text", required: true, adminPrefill: null },
+    { key: "phone", label: "Phone number", type: "tel", required: true, adminPrefill: lead.phone || null },
+    { key: "email", label: "Email address", type: "email", required: true, adminPrefill: lead.email || null },
+    { key: "address", label: "Business address", type: "textarea", required: false, adminPrefill: lead.city || null },
   ];
-  if (imageCount) {
-    questions.push({
-      key: "images_ok",
-      label: `The demo uses ${imageCount} image${imageCount === 1 ? "" : "s"} here — do all ${imageCount} work for your business, or do some need replacing?`,
-      type: "yesnomaybe",
-      helpText: "Choose \"Maybe\" and use the upload below if only some of the images need to change.",
-    });
-    questions.push({
-      key: "replacement_images",
-      label: "Upload any replacement images for this section",
-      type: "multiupload",
-      helpText: "Only needed if you answered anything other than \"Yes\" above.",
-    });
-  }
-  questions.push({
-    key: "content_changes",
-    label: "Any text/content changes needed in this section? (business name, description, taglines, etc.)",
-    type: "text",
-  });
-  return questions;
+}
+
+function section(key, title, description, imageCount = 0) {
+  return {
+    key,
+    title,
+    description,
+    imageCount,
+    keepAsIs: { adminPrefill: null, clientAnswer: null },
+    changeImages: { adminPrefill: null, clientAnswer: null },
+    imagesToChange: [],
+    imageUploads: [],
+    contentChanges: { adminPrefill: null, clientAnswer: null },
+  };
 }
 
 export function buildDefaultSections() {
   return [
-    {
-      key: "hero",
-      title: "Hero",
-      description: "The very first thing visitors see — headline, main image/video, and call to action.",
-      questions: standardQuestions("hero section", 1),
-    },
-    {
-      key: "about",
-      title: "About",
-      description: "Your story, what makes your business different.",
-      questions: standardQuestions("about section", 2),
-    },
-    {
-      key: "services",
-      title: "Services",
-      description: "What you offer, listed out for visitors.",
-      questions: standardQuestions("services section", 0),
-    },
-    {
-      key: "portfolio",
-      title: "Portfolio / Work",
-      description: "Examples of your past work.",
-      questions: standardQuestions("portfolio section", 6),
-    },
-    {
-      key: "contact",
-      title: "Contact",
-      description: "How clients reach you — phone, address, socials, contact form.",
-      questions: standardQuestions("contact section", 0),
-    },
+    section("hero", "Hero", "The very first thing visitors see — headline, main image/video, and call to action.", 1),
+    section("about", "About", "Your story, what makes your business different.", 2),
+    section("services", "Services", "What you offer, listed out for visitors.", 0),
+    section("portfolio", "Portfolio / Work", "Examples of your past work.", 6),
+    section("contact", "Contact", "How clients reach you — phone, address, socials, contact form.", 0),
   ];
 }
 
@@ -74,41 +45,11 @@ export function buildDefaultSections() {
 // Shop, Contact. Used to seed their real onboarding instance.
 export function buildStudioDecorSections() {
   return [
-    {
-      key: "hero",
-      title: "Hero",
-      description: "Your homepage's opening section — main image and headline.",
-      questions: standardQuestions("hero section", 1),
-    },
-    {
-      key: "about",
-      title: "About (Studio Decor story)",
-      description: "Who you are, your studio's story and specialities.",
-      questions: standardQuestions("about section", 2),
-    },
-    {
-      key: "expanding_works",
-      title: "Expanding Works (interactive project showcase)",
-      description: "The interactive panel that expands to show different project categories.",
-      questions: standardQuestions("Expanding Works section", 4),
-    },
-    {
-      key: "services",
-      title: "Services",
-      description: "Your specialities — curtains, wallpaper, flooring, blinds, etc.",
-      questions: standardQuestions("services section", 0),
-    },
-    {
-      key: "shop",
-      title: "Shop",
-      description: "Product/material showcase section.",
-      questions: standardQuestions("shop section", 6),
-    },
-    {
-      key: "contact",
-      title: "Contact",
-      description: "Address, phone, WhatsApp, map, socials.",
-      questions: standardQuestions("contact section", 0),
-    },
+    section("hero", "Hero", "Your homepage's opening section — main image and headline.", 1),
+    section("about", "About (Studio Decor story)", "Who you are, your studio's story and specialities.", 2),
+    section("expanding_works", "Expanding Works (interactive project showcase)", "The interactive panel that expands to show different project categories.", 4),
+    section("services", "Services", "Your specialities — curtains, wallpaper, flooring, blinds, etc.", 0),
+    section("shop", "Shop", "Product/material showcase section.", 6),
+    section("contact", "Contact", "Address, phone, WhatsApp, map, socials.", 0),
   ];
 }

@@ -4,14 +4,44 @@ import { ArrowLeft, Copy, Plus, Trash2, Save, ExternalLink } from "lucide-react"
 import api from "../lib/api";
 
 const PUBLIC_ORIGIN = import.meta.env.VITE_FORWARDLY_SITE_ORIGIN || "https://forwardly.in";
-const QUESTION_TYPES = ["yesno", "yesnomaybe", "text", "number", "upload", "multiupload"];
+const PROFILE_FIELD_TYPES = ["text", "tel", "email", "textarea"];
 const STATUSES = ["draft", "sent", "in_progress", "completed"];
 
-function blankQuestion() {
-  return { key: `q_${Date.now()}`, label: "", type: "yesnomaybe", helpText: "", adminPrefill: null, clientAnswer: null, uploads: [] };
+function blankProfileField() {
+  return { key: `f_${Date.now()}`, label: "", type: "text", required: true, adminPrefill: null, clientAnswer: null };
 }
 function blankSection() {
-  return { key: `s_${Date.now()}`, title: "New section", description: "", questions: [blankQuestion()] };
+  return {
+    key: `s_${Date.now()}`,
+    title: "New section",
+    description: "",
+    imageCount: 0,
+    keepAsIs: { adminPrefill: null, clientAnswer: null },
+    changeImages: { adminPrefill: null, clientAnswer: null },
+    imagesToChange: [],
+    imageUploads: [],
+    contentChanges: { adminPrefill: null, clientAnswer: null },
+  };
+}
+
+function GatePrefill({ value, onChange, maybe = false }) {
+  return (
+    <select className="input" style={{ width: 170 }} value={value || ""} onChange={(e) => onChange(e.target.value || null)}>
+      <option value="">No prefill</option>
+      <option value="yes">Prefill: Yes</option>
+      {maybe && <option value="maybe">Prefill: Maybe</option>}
+      <option value="no">Prefill: No</option>
+    </select>
+  );
+}
+
+function ClientAnswerBadge({ value }) {
+  if (value === null || value === undefined || value === "") return null;
+  return (
+    <div className="mt-2 inline-block rounded-lg bg-[#c2f54b]/15 px-2.5 py-1.5 text-xs font-medium text-[#5f7a00]">
+      Client answered: {String(value)}
+    </div>
+  );
 }
 
 export default function OnboardingDetail() {
@@ -30,8 +60,10 @@ export default function OnboardingDetail() {
   const save = async () => {
     setSaving(true);
     try {
-      const { sections, plan, projectManager, status, notes, demoUrl } = doc;
+      const { profileFields, likesDemo, sections, plan, projectManager, status, notes, demoUrl } = doc;
       const { data } = await api.patch(`/onboarding/${id}`, {
+        profileFields,
+        likesDemo,
         sections,
         plan,
         projectManager: projectManager?._id || projectManager || null,
@@ -53,6 +85,18 @@ export default function OnboardingDetail() {
     alert("Link copied");
   };
 
+  // ---- profile fields ----
+  const updateProfileField = (fi, patch) => {
+    setDoc((d) => {
+      const profileFields = [...d.profileFields];
+      profileFields[fi] = { ...profileFields[fi], ...patch };
+      return { ...d, profileFields };
+    });
+  };
+  const removeProfileField = (fi) => setDoc((d) => ({ ...d, profileFields: d.profileFields.filter((_, i) => i !== fi) }));
+  const addProfileField = () => setDoc((d) => ({ ...d, profileFields: [...d.profileFields, blankProfileField()] }));
+
+  // ---- sections ----
   const updateSection = (si, patch) => {
     setDoc((d) => {
       const sections = [...d.sections];
@@ -60,23 +104,6 @@ export default function OnboardingDetail() {
       return { ...d, sections };
     });
   };
-  const updateQuestion = (si, qi, patch) => {
-    setDoc((d) => {
-      const sections = [...d.sections];
-      const questions = [...sections[si].questions];
-      questions[qi] = { ...questions[qi], ...patch };
-      sections[si] = { ...sections[si], questions };
-      return { ...d, sections };
-    });
-  };
-  const removeQuestion = (si, qi) => {
-    setDoc((d) => {
-      const sections = [...d.sections];
-      sections[si] = { ...sections[si], questions: sections[si].questions.filter((_, i) => i !== qi) };
-      return { ...d, sections };
-    });
-  };
-  const addQuestion = (si) => updateSection(si, { questions: [...doc.sections[si].questions, blankQuestion()] });
   const removeSection = (si) => setDoc((d) => ({ ...d, sections: d.sections.filter((_, i) => i !== si) }));
   const addSection = () => setDoc((d) => ({ ...d, sections: [...d.sections, blankSection()] }));
 
@@ -135,8 +162,55 @@ export default function OnboardingDetail() {
         </div>
       </div>
 
+      {/* ---- Step 1: personal & professional details ---- */}
       <div className="mb-3 flex items-center justify-between">
-        <h2 className="text-sm font-bold uppercase tracking-wide text-gray-500">Sections</h2>
+        <h2 className="text-sm font-bold uppercase tracking-wide text-gray-500">Step 1 · Personal &amp; professional details</h2>
+        <button className="btn btn-ghost" onClick={addProfileField}><Plus size={15} /> Add field</button>
+      </div>
+      <div className="card mb-6 space-y-3 p-5">
+        {doc.profileFields.map((f, fi) => (
+          <div key={f.key} className="rounded-xl border border-gray-100 p-3">
+            <div className="mb-2 flex items-start gap-2">
+              <input className="input flex-1" placeholder="Field label" value={f.label} onChange={(e) => updateProfileField(fi, { label: e.target.value })} />
+              <select className="input" style={{ width: 120 }} value={f.type} onChange={(e) => updateProfileField(fi, { type: e.target.value })}>
+                {PROFILE_FIELD_TYPES.map((t) => <option key={t} value={t}>{t}</option>)}
+              </select>
+              <label className="flex items-center gap-1.5 whitespace-nowrap text-xs text-gray-500">
+                <input type="checkbox" checked={!!f.required} onChange={(e) => updateProfileField(fi, { required: e.target.checked })} /> required
+              </label>
+              <button className="text-gray-300 hover:text-red-500" onClick={() => removeProfileField(fi)}><Trash2 size={15} /></button>
+            </div>
+            <input
+              className="input"
+              placeholder="Prefill value (editable by client, e.g. from the Lead record)"
+              value={f.adminPrefill ?? ""}
+              onChange={(e) => updateProfileField(fi, { adminPrefill: e.target.value || null })}
+            />
+            <ClientAnswerBadge value={f.clientAnswer} />
+          </div>
+        ))}
+      </div>
+
+      {/* ---- Step 2: do you like the demo? ---- */}
+      <div className="mb-3">
+        <h2 className="text-sm font-bold uppercase tracking-wide text-gray-500">Step 2 · Demo reaction gate</h2>
+      </div>
+      <div className="card mb-6 space-y-3 p-5">
+        <div>
+          <p className="mb-1 text-sm font-medium">"Do you like our demo?" — prefill</p>
+          <GatePrefill
+            maybe
+            value={doc.likesDemo?.adminPrefill}
+            onChange={(v) => setDoc((d) => ({ ...d, likesDemo: { ...d.likesDemo, adminPrefill: v } }))}
+          />
+          <ClientAnswerBadge value={doc.likesDemo?.clientAnswer} />
+        </div>
+        <p className="text-xs text-gray-400">If the client answers anything other than "yes", the public form asks a free-text follow-up ("what don't you like?") automatically — no extra config needed here.</p>
+      </div>
+
+      {/* ---- Step 3+: sections ---- */}
+      <div className="mb-3 flex items-center justify-between">
+        <h2 className="text-sm font-bold uppercase tracking-wide text-gray-500">Step 3+ · Demo sections (conditional)</h2>
         <button className="btn btn-ghost" onClick={addSection}><Plus size={15} /> Add section</button>
       </div>
 
@@ -151,53 +225,63 @@ export default function OnboardingDetail() {
               <button className="text-gray-300 hover:text-red-500" onClick={() => removeSection(si)}><Trash2 size={16} /></button>
             </div>
 
+            <div className="mb-4 flex items-center gap-2">
+              <label className="text-xs font-semibold uppercase text-gray-400">Images in this section</label>
+              <input
+                type="number"
+                min={0}
+                className="input"
+                style={{ width: 80 }}
+                value={s.imageCount}
+                onChange={(e) => updateSection(si, { imageCount: Math.max(0, Number(e.target.value) || 0) })}
+              />
+              <span className="text-xs text-gray-400">client will be offered a 1–{s.imageCount || 0} picker if they want changes</span>
+            </div>
+
             <div className="space-y-3">
-              {s.questions.map((q, qi) => (
-                <div key={q.key} className="rounded-xl border border-gray-100 p-3">
-                  <div className="mb-2 flex items-start gap-2">
-                    <input className="input flex-1" placeholder="Question label" value={q.label} onChange={(e) => updateQuestion(si, qi, { label: e.target.value })} />
-                    <select className="input" style={{ width: 130 }} value={q.type} onChange={(e) => updateQuestion(si, qi, { type: e.target.value })}>
-                      {QUESTION_TYPES.map((t) => <option key={t} value={t}>{t}</option>)}
-                    </select>
-                    <button className="text-gray-300 hover:text-red-500" onClick={() => removeQuestion(si, qi)}><Trash2 size={15} /></button>
-                  </div>
-                  <input className="input mb-2 text-sm" placeholder="Help text (optional)" value={q.helpText || ""} onChange={(e) => updateQuestion(si, qi, { helpText: e.target.value })} />
+              <div className="rounded-xl border border-gray-100 p-3">
+                <p className="mb-1.5 text-sm font-medium">"Keep this section as-is?" — prefill</p>
+                <GatePrefill
+                  value={s.keepAsIs?.adminPrefill}
+                  onChange={(v) => updateSection(si, { keepAsIs: { ...s.keepAsIs, adminPrefill: v } })}
+                />
+                <ClientAnswerBadge value={s.keepAsIs?.clientAnswer} />
+                <p className="mt-1.5 text-xs text-gray-400">If "yes", the client skips straight to the next section — no image/content questions shown.</p>
+              </div>
 
-                  {(q.type === "yesno" || q.type === "yesnomaybe") && (
-                    <select className="input" style={{ width: 200 }} value={q.adminPrefill || ""} onChange={(e) => updateQuestion(si, qi, { adminPrefill: e.target.value || null })}>
-                      <option value="">No prefill</option>
-                      <option value="yes">Prefill: Yes</option>
-                      {q.type === "yesnomaybe" && <option value="maybe">Prefill: Maybe</option>}
-                      <option value="no">Prefill: No</option>
-                    </select>
+              {s.imageCount > 0 && (
+                <div className="rounded-xl border border-gray-100 p-3">
+                  <p className="mb-1.5 text-sm font-medium">"Want to change the images?" — prefill</p>
+                  <GatePrefill
+                    value={s.changeImages?.adminPrefill}
+                    onChange={(v) => updateSection(si, { changeImages: { ...s.changeImages, adminPrefill: v } })}
+                  />
+                  <ClientAnswerBadge value={s.changeImages?.clientAnswer} />
+                  {s.imagesToChange?.length > 0 && (
+                    <p className="mt-1.5 text-xs text-gray-500">Client flagged images: {s.imagesToChange.join(", ")}</p>
                   )}
-                  {(q.type === "text" || q.type === "number") && (
-                    <input
-                      className="input"
-                      type={q.type === "number" ? "number" : "text"}
-                      placeholder="Prefill value (editable by client)"
-                      value={q.adminPrefill ?? ""}
-                      onChange={(e) => updateQuestion(si, qi, { adminPrefill: e.target.value || null })}
-                    />
-                  )}
-
-                  {q.clientAnswer !== null && q.clientAnswer !== undefined && (
-                    <div className="mt-2 rounded-lg bg-[#c2f54b]/15 px-2.5 py-1.5 text-xs font-medium text-[#5f7a00]">
-                      Client answered: {String(q.clientAnswer)}
-                    </div>
-                  )}
-                  {q.uploads?.length > 0 && (
+                  {s.imageUploads?.length > 0 && (
                     <div className="mt-2 flex flex-wrap gap-2">
-                      {q.uploads.map((u) => (
-                        <a key={u} href={`${api.defaults.baseURL.replace("/api", "")}${u}`} target="_blank" rel="noreferrer" className="rounded bg-gray-100 px-2 py-1 text-xs text-[#6d8b00]">
-                          {u.split("/").pop()}
+                      {s.imageUploads.map((u) => (
+                        <a key={u.index} href={`${api.defaults.baseURL.replace("/api", "")}${u.url}`} target="_blank" rel="noreferrer" className="rounded bg-gray-100 px-2 py-1 text-xs text-[#6d8b00]">
+                          #{u.index}: {u.url.split("/").pop()}
                         </a>
                       ))}
                     </div>
                   )}
                 </div>
-              ))}
-              <button className="text-xs font-semibold text-[#6d8b00]" onClick={() => addQuestion(si)}>+ Add question</button>
+              )}
+
+              <div className="rounded-xl border border-gray-100 p-3">
+                <p className="mb-1.5 text-sm font-medium">Content/wording changes — prefill</p>
+                <input
+                  className="input"
+                  placeholder="Prefill text (editable by client)"
+                  value={s.contentChanges?.adminPrefill ?? ""}
+                  onChange={(e) => updateSection(si, { contentChanges: { ...s.contentChanges, adminPrefill: e.target.value || null } })}
+                />
+                <ClientAnswerBadge value={s.contentChanges?.clientAnswer} />
+              </div>
             </div>
           </div>
         ))}

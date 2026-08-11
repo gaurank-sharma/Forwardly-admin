@@ -6,7 +6,7 @@ import { fileURLToPath } from "url";
 import Onboarding from "../models/Onboarding.js";
 import Lead from "../models/Lead.js";
 import { auth, requireAdmin } from "../middleware/auth.js";
-import { buildDefaultSections } from "../services/onboardingTemplate.js";
+import { buildDefaultSections, buildDefaultProfileFields } from "../services/onboardingTemplate.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const uploadDir = path.join(__dirname, "../../uploads");
@@ -33,25 +33,40 @@ r.get("/public/:token", async (req, res) => {
   res.json(doc);
 });
 
-// Client submits/edits their answers. Only clientAnswer + uploads are
-// writable here — admin-only fields (prefill, PM, status, notes) are not
-// touched by this route no matter what the request body contains.
+// Client submits/edits their answers. Only clientAnswer fields (and derived
+// selections like imagesToChange) are writable here — admin-only fields
+// (adminPrefill, PM, status, notes, imageCount) are not touched by this
+// route no matter what the request body contains.
 r.patch("/public/:token", async (req, res) => {
   const doc = await Onboarding.findOne({ token: req.params.token });
   if (!doc) return res.status(404).json({ error: "Not found" });
 
-  const incomingSections = req.body?.sections;
-  if (Array.isArray(incomingSections)) {
-    for (const incoming of incomingSections) {
-      const section = doc.sections.find((s) => s.key === incoming.key);
-      if (!section) continue;
-      for (const iq of incoming.questions || []) {
-        const q = section.questions.find((x) => x.key === iq.key);
-        if (!q) continue;
-        if ("clientAnswer" in iq) q.clientAnswer = iq.clientAnswer;
+  const { profileFields, likesDemo, demoFeedback, sections } = req.body || {};
+
+  if (Array.isArray(profileFields)) {
+    for (const incoming of profileFields) {
+      const f = doc.profileFields.find((x) => x.key === incoming.key);
+      if (f && "clientAnswer" in incoming) f.clientAnswer = incoming.clientAnswer;
+    }
+  }
+  if (likesDemo && "clientAnswer" in likesDemo) doc.likesDemo.clientAnswer = likesDemo.clientAnswer;
+  if (demoFeedback && "clientAnswer" in demoFeedback) doc.demoFeedback.clientAnswer = demoFeedback.clientAnswer;
+
+  if (Array.isArray(sections)) {
+    for (const incoming of sections) {
+      const s = doc.sections.find((x) => x.key === incoming.key);
+      if (!s) continue;
+      if (incoming.keepAsIs && "clientAnswer" in incoming.keepAsIs) s.keepAsIs.clientAnswer = incoming.keepAsIs.clientAnswer;
+      if (incoming.changeImages && "clientAnswer" in incoming.changeImages) s.changeImages.clientAnswer = incoming.changeImages.clientAnswer;
+      if (incoming.contentChanges && "clientAnswer" in incoming.contentChanges) s.contentChanges.clientAnswer = incoming.contentChanges.clientAnswer;
+      if (Array.isArray(incoming.imagesToChange)) {
+        s.imagesToChange = incoming.imagesToChange
+          .map((n) => Number(n))
+          .filter((n) => Number.isInteger(n) && n >= 1 && n <= s.imageCount);
       }
     }
   }
+
   if (doc.status === "sent") doc.status = "in_progress";
   await doc.save();
   res.json(doc);
@@ -63,11 +78,13 @@ r.post("/public/:token/upload", upload.single("file"), async (req, res) => {
   if (!req.file) return res.status(400).json({ error: "No file" });
 
   const url = `/uploads/${req.file.filename}`;
-  const { sectionKey, questionKey } = req.body;
+  const { sectionKey, imageIndex } = req.body;
+  const index = Number(imageIndex);
   const section = doc.sections.find((s) => s.key === sectionKey);
-  const q = section?.questions.find((x) => x.key === questionKey);
-  if (q) {
-    q.uploads.push(url);
+  if (section && Number.isInteger(index) && index >= 1 && index <= section.imageCount) {
+    const existing = section.imageUploads.find((u) => u.index === index);
+    if (existing) existing.url = url;
+    else section.imageUploads.push({ index, url });
     if (doc.status === "sent") doc.status = "in_progress";
     await doc.save();
   }
@@ -100,6 +117,7 @@ r.post("/", requireAdmin, async (req, res) => {
     lead: lead._id,
     clientName: lead.name,
     plan,
+    profileFields: buildDefaultProfileFields(lead),
     sections: buildDefaultSections(),
   });
   res.status(201).json(doc);
@@ -114,14 +132,18 @@ r.get("/:id", async (req, res) => {
   res.json(doc);
 });
 
-// Admin edits: sections/prefills/plan/PM/status/notes/demoUrl. Full-document
-// replace of `sections` is intentional — the admin UI always sends the
-// complete edited tree back, simpler than diffing.
+// Admin edits: profileFields/likesDemo/sections/prefills/plan/PM/status/
+// notes/demoUrl. Full-document replace of profileFields/sections is
+// intentional — the admin UI always sends the complete edited tree back,
+// simpler than diffing.
 r.patch("/:id", async (req, res) => {
   const doc = await Onboarding.findById(req.params.id);
   if (!doc) return res.status(404).json({ error: "Not found" });
 
-  const { sections, plan, projectManager, status, notes, demoUrl } = req.body;
+  const { profileFields, likesDemo, demoFeedback, sections, plan, projectManager, status, notes, demoUrl } = req.body;
+  if (Array.isArray(profileFields)) doc.profileFields = profileFields;
+  if (likesDemo) doc.likesDemo = { ...doc.likesDemo.toObject?.() ?? doc.likesDemo, ...likesDemo };
+  if (demoFeedback) doc.demoFeedback = { ...doc.demoFeedback.toObject?.() ?? doc.demoFeedback, ...demoFeedback };
   if (Array.isArray(sections)) doc.sections = sections;
   if (plan) doc.plan = plan;
   if (projectManager !== undefined) doc.projectManager = projectManager || null;
