@@ -52,7 +52,16 @@ const sectionSchema = new mongoose.Schema(
     // 1-based indices into the section's imageCount the client wants replaced.
     imagesToChange: { type: [Number], default: [] },
     imageUploads: {
-      type: [{ index: { type: Number, required: true }, url: { type: String, required: true } }],
+      type: [
+        {
+          index: { type: Number, required: true },
+          url: { type: String, required: true },
+          // What this specific replacement image is / where it goes —
+          // e.g. "our new modular kitchen shot, use for panel 3". Separate
+          // from the section-wide contentChanges text below.
+          caption: { type: String, default: "" },
+        },
+      ],
       default: [],
       _id: false,
     },

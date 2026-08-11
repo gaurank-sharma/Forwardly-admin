@@ -28,7 +28,9 @@ const r = Router();
 r.use("/public", cors());
 
 r.get("/public/:token", async (req, res) => {
-  const doc = await Onboarding.findOne({ token: req.params.token }).lean();
+  const doc = await Onboarding.findOne({ token: req.params.token })
+    .populate("projectManager", "name phone")
+    .lean();
   if (!doc) return res.status(404).json({ error: "Not found" });
   res.json(doc);
 });
@@ -63,6 +65,15 @@ r.patch("/public/:token", async (req, res) => {
         s.imagesToChange = incoming.imagesToChange
           .map((n) => Number(n))
           .filter((n) => Number.isInteger(n) && n >= 1 && n <= s.imageCount);
+      }
+      // Caption per uploaded image (what it is / where it goes) — the file
+      // itself only ever comes from the /upload route, but its caption is
+      // plain text so it travels with the rest of the answer payload.
+      if (Array.isArray(incoming.imageUploads)) {
+        for (const iu of incoming.imageUploads) {
+          const upload = s.imageUploads.find((u) => u.index === iu.index);
+          if (upload && "caption" in iu) upload.caption = iu.caption;
+        }
       }
     }
   }
@@ -99,7 +110,7 @@ r.use(auth);
 r.get("/", async (req, res) => {
   const items = await Onboarding.find()
     .populate("lead", "name phone city industry")
-    .populate("projectManager", "name")
+    .populate("projectManager", "name phone")
     .sort({ createdAt: -1 })
     .lean();
   res.json(items);
@@ -126,7 +137,7 @@ r.post("/", requireAdmin, async (req, res) => {
 r.get("/:id", async (req, res) => {
   const doc = await Onboarding.findById(req.params.id)
     .populate("lead", "name phone city industry")
-    .populate("projectManager", "name")
+    .populate("projectManager", "name phone")
     .lean();
   if (!doc) return res.status(404).json({ error: "Not found" });
   res.json(doc);

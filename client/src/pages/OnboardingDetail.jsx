@@ -6,6 +6,8 @@ import api from "../lib/api";
 const PUBLIC_ORIGIN = import.meta.env.VITE_FORWARDLY_SITE_ORIGIN || "https://forwardly.in";
 const PROFILE_FIELD_TYPES = ["text", "tel", "email", "textarea"];
 const STATUSES = ["draft", "sent", "in_progress", "completed"];
+const YES_NO = ["yes", "no"];
+const YES_NO_MAYBE = ["yes", "no", "maybe"];
 
 function blankProfileField() {
   return { key: `f_${Date.now()}`, label: "", type: "text", required: true, adminPrefill: null, clientAnswer: null };
@@ -24,22 +26,54 @@ function blankSection() {
   };
 }
 
-function GatePrefill({ value, onChange, maybe = false }) {
+// Admin's default suggestion vs. the client's actual (editable) answer,
+// side by side — both are real inputs now, not a read-only echo.
+function GatePair({ label, options, prefill, answer, onPrefill, onAnswer }) {
   return (
-    <select className="input" style={{ width: 170 }} value={value || ""} onChange={(e) => onChange(e.target.value || null)}>
-      <option value="">No prefill</option>
-      <option value="yes">Prefill: Yes</option>
-      {maybe && <option value="maybe">Prefill: Maybe</option>}
-      <option value="no">Prefill: No</option>
-    </select>
+    <div>
+      <p className="mb-1.5 text-sm font-medium">{label}</p>
+      <div className="grid grid-cols-2 gap-2">
+        <div>
+          <label className="mb-1 block text-[11px] font-semibold uppercase text-gray-400">Admin prefill</label>
+          <select className="input" value={prefill || ""} onChange={(e) => onPrefill(e.target.value || null)}>
+            <option value="">None</option>
+            {options.map((o) => <option key={o} value={o}>{o}</option>)}
+          </select>
+        </div>
+        <div>
+          <label className="mb-1 block text-[11px] font-semibold uppercase text-[#6d8b00]">Client's answer (editable)</label>
+          <select className="input" style={{ borderColor: "#8fb82e", background: "rgba(194,245,75,0.12)" }} value={answer || ""} onChange={(e) => onAnswer(e.target.value || null)}>
+            <option value="">Not answered yet</option>
+            {options.map((o) => <option key={o} value={o}>{o}</option>)}
+          </select>
+        </div>
+      </div>
+    </div>
   );
 }
 
-function ClientAnswerBadge({ value }) {
-  if (value === null || value === undefined || value === "") return null;
+function TextPair({ label, help, prefill, answer, onPrefill, onAnswer, multiline }) {
+  const Comp = multiline ? "textarea" : "input";
   return (
-    <div className="mt-2 inline-block rounded-lg bg-[#c2f54b]/15 px-2.5 py-1.5 text-xs font-medium text-[#5f7a00]">
-      Client answered: {String(value)}
+    <div>
+      <p className="mb-1.5 text-sm font-medium">{label}</p>
+      {help && <p className="mb-1.5 text-xs text-gray-400">{help}</p>}
+      <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+        <div>
+          <label className="mb-1 block text-[11px] font-semibold uppercase text-gray-400">Admin prefill</label>
+          <Comp className="input" rows={multiline ? 2 : undefined} value={prefill ?? ""} onChange={(e) => onPrefill(e.target.value || null)} />
+        </div>
+        <div>
+          <label className="mb-1 block text-[11px] font-semibold uppercase text-[#6d8b00]">Client's answer (editable)</label>
+          <Comp
+            className="input"
+            style={{ borderColor: "#8fb82e", background: "rgba(194,245,75,0.12)" }}
+            rows={multiline ? 2 : undefined}
+            value={answer ?? ""}
+            onChange={(e) => onAnswer(e.target.value || null)}
+          />
+        </div>
+      </div>
     </div>
   );
 }
@@ -60,10 +94,11 @@ export default function OnboardingDetail() {
   const save = async () => {
     setSaving(true);
     try {
-      const { profileFields, likesDemo, sections, plan, projectManager, status, notes, demoUrl } = doc;
+      const { profileFields, likesDemo, demoFeedback, sections, plan, projectManager, status, notes, demoUrl } = doc;
       const { data } = await api.patch(`/onboarding/${id}`, {
         profileFields,
         likesDemo,
+        demoFeedback,
         sections,
         plan,
         projectManager: projectManager?._id || projectManager || null,
@@ -107,7 +142,34 @@ export default function OnboardingDetail() {
   const removeSection = (si) => setDoc((d) => ({ ...d, sections: d.sections.filter((_, i) => i !== si) }));
   const addSection = () => setDoc((d) => ({ ...d, sections: [...d.sections, blankSection()] }));
 
+  const toggleImageFlag = (si, n) => {
+    setDoc((d) => {
+      const sections = [...d.sections];
+      const cur = sections[si].imagesToChange || [];
+      sections[si] = { ...sections[si], imagesToChange: cur.includes(n) ? cur.filter((x) => x !== n) : [...cur, n].sort((a, b) => a - b) };
+      return { ...d, sections };
+    });
+  };
+  const updateImageCaption = (si, index, caption) => {
+    setDoc((d) => {
+      const sections = [...d.sections];
+      const imageUploads = sections[si].imageUploads.map((u) => (u.index === index ? { ...u, caption } : u));
+      sections[si] = { ...sections[si], imageUploads };
+      return { ...d, sections };
+    });
+  };
+  const removeImageUpload = (si, index) => {
+    setDoc((d) => {
+      const sections = [...d.sections];
+      sections[si] = { ...sections[si], imageUploads: sections[si].imageUploads.filter((u) => u.index !== index) };
+      return { ...d, sections };
+    });
+  };
+
   if (!doc) return <div className="text-sm text-gray-500">Loading…</div>;
+
+  const selectedAgent = agents.find((a) => a.id === (doc.projectManager?._id || doc.projectManager));
+  const pmPhone = doc.projectManager?.phone || selectedAgent?.phone || "";
 
   return (
     <div>
@@ -149,8 +211,9 @@ export default function OnboardingDetail() {
             onChange={(e) => setDoc({ ...doc, projectManager: e.target.value || null })}
           >
             <option value="">Unassigned</option>
-            {agents.map((a) => <option key={a.id} value={a.id}>{a.name}</option>)}
+            {agents.map((a) => <option key={a.id} value={a.id}>{a.name}{a.phone ? ` · ${a.phone}` : ""}</option>)}
           </select>
+          {pmPhone && <p className="mt-1 text-xs text-gray-400">Shown to client as their point of contact: {pmPhone}</p>}
         </div>
         <div>
           <label className="mb-1 block text-xs font-semibold uppercase text-gray-400">Demo URL</label>
@@ -180,13 +243,14 @@ export default function OnboardingDetail() {
               </label>
               <button className="text-gray-300 hover:text-red-500" onClick={() => removeProfileField(fi)}><Trash2 size={15} /></button>
             </div>
-            <input
-              className="input"
-              placeholder="Prefill value (editable by client, e.g. from the Lead record)"
-              value={f.adminPrefill ?? ""}
-              onChange={(e) => updateProfileField(fi, { adminPrefill: e.target.value || null })}
+            <TextPair
+              label=""
+              prefill={f.adminPrefill}
+              answer={f.clientAnswer}
+              onPrefill={(v) => updateProfileField(fi, { adminPrefill: v })}
+              onAnswer={(v) => updateProfileField(fi, { clientAnswer: v })}
+              multiline={f.type === "textarea"}
             />
-            <ClientAnswerBadge value={f.clientAnswer} />
           </div>
         ))}
       </div>
@@ -195,17 +259,24 @@ export default function OnboardingDetail() {
       <div className="mb-3">
         <h2 className="text-sm font-bold uppercase tracking-wide text-gray-500">Step 2 · Demo reaction gate</h2>
       </div>
-      <div className="card mb-6 space-y-3 p-5">
-        <div>
-          <p className="mb-1 text-sm font-medium">"Do you like our demo?" — prefill</p>
-          <GatePrefill
-            maybe
-            value={doc.likesDemo?.adminPrefill}
-            onChange={(v) => setDoc((d) => ({ ...d, likesDemo: { ...d.likesDemo, adminPrefill: v } }))}
-          />
-          <ClientAnswerBadge value={doc.likesDemo?.clientAnswer} />
-        </div>
-        <p className="text-xs text-gray-400">If the client answers anything other than "yes", the public form asks a free-text follow-up ("what don't you like?") automatically — no extra config needed here.</p>
+      <div className="card mb-6 space-y-4 p-5">
+        <GatePair
+          label={'"Do you like our demo?"'}
+          options={YES_NO_MAYBE}
+          prefill={doc.likesDemo?.adminPrefill}
+          answer={doc.likesDemo?.clientAnswer}
+          onPrefill={(v) => setDoc((d) => ({ ...d, likesDemo: { ...d.likesDemo, adminPrefill: v } }))}
+          onAnswer={(v) => setDoc((d) => ({ ...d, likesDemo: { ...d.likesDemo, clientAnswer: v } }))}
+        />
+        <TextPair
+          label="What don't you like / what's missing?"
+          help={'Shown to the client only if their answer above isn\'t "yes".'}
+          prefill={doc.demoFeedback?.adminPrefill}
+          answer={doc.demoFeedback?.clientAnswer}
+          onPrefill={(v) => setDoc((d) => ({ ...d, demoFeedback: { ...d.demoFeedback, adminPrefill: v } }))}
+          onAnswer={(v) => setDoc((d) => ({ ...d, demoFeedback: { ...d.demoFeedback, clientAnswer: v } }))}
+          multiline
+        />
       </div>
 
       {/* ---- Step 3+: sections ---- */}
@@ -238,34 +309,74 @@ export default function OnboardingDetail() {
               <span className="text-xs text-gray-400">client will be offered a 1–{s.imageCount || 0} picker if they want changes</span>
             </div>
 
-            <div className="space-y-3">
+            <div className="space-y-4">
               <div className="rounded-xl border border-gray-100 p-3">
-                <p className="mb-1.5 text-sm font-medium">"Keep this section as-is?" — prefill</p>
-                <GatePrefill
-                  value={s.keepAsIs?.adminPrefill}
-                  onChange={(v) => updateSection(si, { keepAsIs: { ...s.keepAsIs, adminPrefill: v } })}
+                <GatePair
+                  label='"Keep this section as-is?"'
+                  options={YES_NO}
+                  prefill={s.keepAsIs?.adminPrefill}
+                  answer={s.keepAsIs?.clientAnswer}
+                  onPrefill={(v) => updateSection(si, { keepAsIs: { ...s.keepAsIs, adminPrefill: v } })}
+                  onAnswer={(v) => updateSection(si, { keepAsIs: { ...s.keepAsIs, clientAnswer: v } })}
                 />
-                <ClientAnswerBadge value={s.keepAsIs?.clientAnswer} />
                 <p className="mt-1.5 text-xs text-gray-400">If "yes", the client skips straight to the next section — no image/content questions shown.</p>
               </div>
 
               {s.imageCount > 0 && (
                 <div className="rounded-xl border border-gray-100 p-3">
-                  <p className="mb-1.5 text-sm font-medium">"Want to change the images?" — prefill</p>
-                  <GatePrefill
-                    value={s.changeImages?.adminPrefill}
-                    onChange={(v) => updateSection(si, { changeImages: { ...s.changeImages, adminPrefill: v } })}
+                  <GatePair
+                    label='"Want to change the images?"'
+                    options={YES_NO}
+                    prefill={s.changeImages?.adminPrefill}
+                    answer={s.changeImages?.clientAnswer}
+                    onPrefill={(v) => updateSection(si, { changeImages: { ...s.changeImages, adminPrefill: v } })}
+                    onAnswer={(v) => updateSection(si, { changeImages: { ...s.changeImages, clientAnswer: v } })}
                   />
-                  <ClientAnswerBadge value={s.changeImages?.clientAnswer} />
-                  {s.imagesToChange?.length > 0 && (
-                    <p className="mt-1.5 text-xs text-gray-500">Client flagged images: {s.imagesToChange.join(", ")}</p>
-                  )}
+
+                  <div className="mt-3">
+                    <label className="mb-1.5 block text-[11px] font-semibold uppercase text-gray-400">
+                      Which images are flagged for replacement (editable — admin can flag on the client's behalf too)
+                    </label>
+                    <div className="flex flex-wrap gap-1.5">
+                      {Array.from({ length: s.imageCount }, (_, i) => i + 1).map((n) => (
+                        <button
+                          key={n}
+                          type="button"
+                          onClick={() => toggleImageFlag(si, n)}
+                          className={`grid h-8 w-8 place-items-center rounded-full border text-xs font-bold ${
+                            (s.imagesToChange || []).includes(n)
+                              ? "border-[#8fb82e] bg-[#c2f54b] text-[#0a0a0b]"
+                              : "border-gray-200 text-gray-400 hover:border-gray-300"
+                          }`}
+                        >
+                          {n}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+
                   {s.imageUploads?.length > 0 && (
-                    <div className="mt-2 flex flex-wrap gap-2">
+                    <div className="mt-3 space-y-2">
                       {s.imageUploads.map((u) => (
-                        <a key={u.index} href={`${api.defaults.baseURL.replace("/api", "")}${u.url}`} target="_blank" rel="noreferrer" className="rounded bg-gray-100 px-2 py-1 text-xs text-[#6d8b00]">
-                          #{u.index}: {u.url.split("/").pop()}
-                        </a>
+                        <div key={u.index} className="flex items-start gap-2 rounded-lg border border-gray-100 p-2">
+                          <a
+                            href={`${api.defaults.baseURL.replace("/api", "")}${u.url}`}
+                            target="_blank"
+                            rel="noreferrer"
+                            className="shrink-0 rounded bg-gray-100 px-2 py-1 text-xs font-semibold text-[#6d8b00]"
+                          >
+                            #{u.index} ↗
+                          </a>
+                          <input
+                            className="input flex-1 text-sm"
+                            placeholder="What is this image / where should it go?"
+                            value={u.caption || ""}
+                            onChange={(e) => updateImageCaption(si, u.index, e.target.value)}
+                          />
+                          <button className="text-gray-300 hover:text-red-500" onClick={() => removeImageUpload(si, u.index)}>
+                            <Trash2 size={15} />
+                          </button>
+                        </div>
                       ))}
                     </div>
                   )}
@@ -273,14 +384,14 @@ export default function OnboardingDetail() {
               )}
 
               <div className="rounded-xl border border-gray-100 p-3">
-                <p className="mb-1.5 text-sm font-medium">Content/wording changes — prefill</p>
-                <input
-                  className="input"
-                  placeholder="Prefill text (editable by client)"
-                  value={s.contentChanges?.adminPrefill ?? ""}
-                  onChange={(e) => updateSection(si, { contentChanges: { ...s.contentChanges, adminPrefill: e.target.value || null } })}
+                <TextPair
+                  label="Content / wording changes"
+                  prefill={s.contentChanges?.adminPrefill}
+                  answer={s.contentChanges?.clientAnswer}
+                  onPrefill={(v) => updateSection(si, { contentChanges: { ...s.contentChanges, adminPrefill: v } })}
+                  onAnswer={(v) => updateSection(si, { contentChanges: { ...s.contentChanges, clientAnswer: v } })}
+                  multiline
                 />
-                <ClientAnswerBadge value={s.contentChanges?.clientAnswer} />
               </div>
             </div>
           </div>
