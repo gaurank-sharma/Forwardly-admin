@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
-import { ArrowLeft, Copy, Plus, Trash2, Save, ExternalLink } from "lucide-react";
+import { ArrowLeft, Copy, Plus, Trash2, Save, ExternalLink, RotateCcw } from "lucide-react";
 import api from "../lib/api";
 
 const PUBLIC_ORIGIN = import.meta.env.VITE_FORWARDLY_SITE_ORIGIN || "https://forwardly.in";
@@ -84,6 +84,7 @@ export default function OnboardingDetail() {
   const [doc, setDoc] = useState(null);
   const [agents, setAgents] = useState([]);
   const [saving, setSaving] = useState(false);
+  const [resetting, setResetting] = useState(false);
 
   const load = async () => setDoc((await api.get(`/onboarding/${id}`)).data);
   useEffect(() => {
@@ -94,7 +95,7 @@ export default function OnboardingDetail() {
   const save = async () => {
     setSaving(true);
     try {
-      const { profileFields, likesDemo, demoFeedback, sections, plan, projectManager, status, notes, demoUrl } = doc;
+      const { profileFields, likesDemo, demoFeedback, sections, plan, projectManager, pmContact, status, notes, demoUrl } = doc;
       const { data } = await api.patch(`/onboarding/${id}`, {
         profileFields,
         likesDemo,
@@ -102,6 +103,7 @@ export default function OnboardingDetail() {
         sections,
         plan,
         projectManager: projectManager?._id || projectManager || null,
+        pmContact,
         status,
         notes,
         demoUrl,
@@ -118,6 +120,20 @@ export default function OnboardingDetail() {
   const copyLink = () => {
     navigator.clipboard.writeText(`${PUBLIC_ORIGIN}/onboarding/${doc.token}`);
     alert("Link copied");
+  };
+
+  const resetAnswers = async () => {
+    if (!confirm("Wipe everything the client has submitted (answers + uploaded images) and send this back to draft? This can't be undone.")) return;
+    setResetting(true);
+    try {
+      const { data } = await api.post(`/onboarding/${id}/reset`);
+      setDoc(data);
+      alert("Reset — all client answers cleared, status back to draft.");
+    } catch (e) {
+      alert(e.response?.data?.error || "Reset failed");
+    } finally {
+      setResetting(false);
+    }
   };
 
   // ---- profile fields ----
@@ -185,6 +201,9 @@ export default function OnboardingDetail() {
         <div className="flex items-center gap-2">
           <button className="btn btn-ghost" onClick={copyLink}><Copy size={16} /> Copy client link</button>
           <a href={`${PUBLIC_ORIGIN}/onboarding/${doc.token}`} target="_blank" rel="noreferrer" className="btn btn-ghost"><ExternalLink size={16} /></a>
+          <button className="btn btn-ghost text-red-500" onClick={resetAnswers} disabled={resetting} title="Wipe client answers, send back to draft">
+            <RotateCcw size={16} /> {resetting ? "Resetting…" : "Reset"}
+          </button>
           <button className="btn btn-dark" onClick={save} disabled={saving}><Save size={16} /> {saving ? "Saving…" : "Save"}</button>
         </div>
       </div>
@@ -213,11 +232,30 @@ export default function OnboardingDetail() {
             <option value="">Unassigned</option>
             {agents.map((a) => <option key={a.id} value={a.id}>{a.name}{a.phone ? ` · ${a.phone}` : ""}</option>)}
           </select>
-          {pmPhone && <p className="mt-1 text-xs text-gray-400">Shown to client as their point of contact: {pmPhone}</p>}
+          {pmPhone && <p className="mt-1 text-xs text-gray-400">Agent's own phone: {pmPhone}</p>}
         </div>
         <div>
           <label className="mb-1 block text-xs font-semibold uppercase text-gray-400">Demo URL</label>
           <input className="input" placeholder="https://…" value={doc.demoUrl || ""} onChange={(e) => setDoc({ ...doc, demoUrl: e.target.value })} />
+        </div>
+        <div className="sm:col-span-2 lg:col-span-2">
+          <label className="mb-1 block text-xs font-semibold uppercase text-gray-400">Contact name shown to client</label>
+          <input
+            className="input"
+            placeholder={selectedAgent?.name || "Defaults to the agent above"}
+            value={doc.pmContact?.name || ""}
+            onChange={(e) => setDoc({ ...doc, pmContact: { ...doc.pmContact, name: e.target.value } })}
+          />
+        </div>
+        <div className="sm:col-span-2 lg:col-span-2">
+          <label className="mb-1 block text-xs font-semibold uppercase text-gray-400">Contact phone shown to client</label>
+          <input
+            className="input"
+            placeholder={pmPhone || "Defaults to the agent above"}
+            value={doc.pmContact?.phone || ""}
+            onChange={(e) => setDoc({ ...doc, pmContact: { ...doc.pmContact, phone: e.target.value } })}
+          />
+          <p className="mt-1 text-xs text-gray-400">Only needed if the PM isn't a registered agent, or you want a different name/number shown than their account.</p>
         </div>
         <div className="sm:col-span-2 lg:col-span-4">
           <label className="mb-1 block text-xs font-semibold uppercase text-gray-400">Internal notes</label>

@@ -105,10 +105,14 @@ function NewOnboardingModal({ onClose, onCreated }) {
 
 export default function Onboarding() {
   const [items, setItems] = useState([]);
+  const [agents, setAgents] = useState([]);
   const [showNew, setShowNew] = useState(false);
 
   const load = async () => setItems((await api.get("/onboarding")).data);
-  useEffect(() => { load(); }, []);
+  useEffect(() => {
+    load();
+    api.get("/agents").then((r) => setAgents(r.data));
+  }, []);
 
   const copyLink = (token) => {
     navigator.clipboard.writeText(`${PUBLIC_ORIGIN}/onboarding/${token}`);
@@ -119,6 +123,11 @@ export default function Onboarding() {
     if (!confirm("Delete this onboarding?")) return;
     await api.delete(`/onboarding/${id}`);
     load();
+  };
+
+  const assignPm = async (id, agentId) => {
+    const { data } = await api.patch(`/onboarding/${id}`, { projectManager: agentId || null });
+    setItems((prev) => prev.map((o) => (o._id === id ? { ...o, projectManager: data.projectManager } : o)));
   };
 
   return (
@@ -154,7 +163,17 @@ export default function Onboarding() {
                 <td className="px-3 py-3">
                   <span className={`rounded-full px-2 py-0.5 text-xs font-bold ${STATUS_TONE[o.status]}`}>{o.status.replace("_", " ")}</span>
                 </td>
-                <td className="px-3 py-3 text-gray-500">{o.projectManager?.name || "—"}</td>
+                <td className="px-3 py-3" onClick={(e) => e.stopPropagation()}>
+                  <select
+                    className="input py-1.5 text-sm"
+                    style={{ width: 190 }}
+                    value={o.projectManager?._id || o.projectManager || ""}
+                    onChange={(e) => assignPm(o._id, e.target.value)}
+                  >
+                    <option value="">Unassigned</option>
+                    {agents.map((a) => <option key={a.id} value={a.id}>{a.name}{a.phone ? ` · ${a.phone}` : ""}</option>)}
+                  </select>
+                </td>
                 <td className="px-3 py-3" onClick={(e) => e.stopPropagation()}>
                   <button className="inline-flex items-center gap-1 text-[#6d8b00]" onClick={() => copyLink(o.token)}>
                     <Copy size={13} /> Copy

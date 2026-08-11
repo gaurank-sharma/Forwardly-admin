@@ -85,6 +85,15 @@ const onboardingSchema = new mongoose.Schema(
     token: { type: String, required: true, unique: true, index: true, default: () => crypto.randomBytes(20).toString("hex") },
 
     projectManager: { type: mongoose.Schema.Types.ObjectId, ref: "User", default: null },
+    // Free-text override for the contact info shown to the client — lets
+    // the admin put a name/number here even when the PM isn't a registered
+    // agent account (or wants a different display name/number than their
+    // login). Falls back to the projectManager account's own name/phone
+    // when left blank, and shows nothing if neither is set.
+    pmContact: {
+      name: { type: String, default: "" },
+      phone: { type: String, default: "" },
+    },
 
     status: {
       type: String,

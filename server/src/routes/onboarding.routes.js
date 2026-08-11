@@ -151,13 +151,14 @@ r.patch("/:id", async (req, res) => {
   const doc = await Onboarding.findById(req.params.id);
   if (!doc) return res.status(404).json({ error: "Not found" });
 
-  const { profileFields, likesDemo, demoFeedback, sections, plan, projectManager, status, notes, demoUrl } = req.body;
+  const { profileFields, likesDemo, demoFeedback, sections, plan, projectManager, pmContact, status, notes, demoUrl } = req.body;
   if (Array.isArray(profileFields)) doc.profileFields = profileFields;
   if (likesDemo) doc.likesDemo = { ...doc.likesDemo.toObject?.() ?? doc.likesDemo, ...likesDemo };
   if (demoFeedback) doc.demoFeedback = { ...doc.demoFeedback.toObject?.() ?? doc.demoFeedback, ...demoFeedback };
   if (Array.isArray(sections)) doc.sections = sections;
   if (plan) doc.plan = plan;
   if (projectManager !== undefined) doc.projectManager = projectManager || null;
+  if (pmContact) doc.pmContact = { ...doc.pmContact.toObject?.() ?? doc.pmContact, ...pmContact };
   if (notes !== undefined) doc.notes = notes;
   if (demoUrl !== undefined) doc.demoUrl = demoUrl;
   if (status && status !== doc.status) {
@@ -166,6 +167,36 @@ r.patch("/:id", async (req, res) => {
     if (status === "completed" && !doc.completedAt) doc.completedAt = new Date();
   }
   await doc.save();
+  await doc.populate("lead", "name phone city industry");
+  await doc.populate("projectManager", "name phone");
+  res.json(doc);
+});
+
+// Wipe everything the client submitted (answers + uploaded image refs) and
+// send the onboarding back to "draft" — e.g. to resend a clean link after
+// testing, or if the client wants to start their answers over. Admin
+// prefills, sections/profile field definitions, plan, PM etc. are untouched.
+r.post("/:id/reset", requireAdmin, async (req, res) => {
+  const doc = await Onboarding.findById(req.params.id);
+  if (!doc) return res.status(404).json({ error: "Not found" });
+
+  for (const f of doc.profileFields) f.clientAnswer = null;
+  doc.likesDemo.clientAnswer = null;
+  doc.demoFeedback.clientAnswer = null;
+  for (const s of doc.sections) {
+    s.keepAsIs.clientAnswer = null;
+    s.changeImages.clientAnswer = null;
+    s.contentChanges.clientAnswer = null;
+    s.imagesToChange = [];
+    s.imageUploads = [];
+  }
+  doc.status = "draft";
+  doc.sentAt = null;
+  doc.completedAt = null;
+
+  await doc.save();
+  await doc.populate("lead", "name phone city industry");
+  await doc.populate("projectManager", "name phone");
   res.json(doc);
 });
 
