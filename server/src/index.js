@@ -20,7 +20,15 @@ import onboardingRoutes from "./routes/onboarding.routes.js";
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
 const app = express();
-app.use(cors({ origin: config.clientOrigin, credentials: true }));
+// The public onboarding routes (forwardly.in, a different origin, no login)
+// have their own open cors() applied inside onboarding.routes.js — the
+// token is the security boundary there, not CORS. Skip the admin-only
+// restrictive CORS for that path, since this global middleware runs first
+// and would otherwise swallow the preflight before the router sees it.
+app.use((req, res, next) => {
+  if (req.path.startsWith("/api/onboarding/public")) return next();
+  return cors({ origin: config.clientOrigin, credentials: true })(req, res, next);
+});
 app.use(express.json({ limit: "2mb" }));
 app.use(morgan("dev"));
 app.use("/uploads", express.static(path.join(__dirname, "../uploads")));
