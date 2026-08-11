@@ -42,14 +42,21 @@ export function buildDefaultSections() {
 
 // Studio Decor's actual demo (Florence-main repo) has 6 real homepage
 // sections in this exact order: Hero, About, Expanding Works, Services,
-// Shop, Contact. Used to seed their real onboarding instance.
+// Shop, Contact. Image counts verified directly against the demo's source
+// (src/data/projects.js `featured` list, and the hardcoded image arrays in
+// each Home* component) — not guessed from labels.
 export function buildStudioDecorSections() {
   return [
-    section("hero", "Hero", "Your homepage's opening section — main image and headline.", 1),
-    section("about", "About (Studio Decor story)", "Who you are, your studio's story and specialities.", 2),
-    section("expanding_works", "Expanding Works (interactive project showcase)", "The interactive panel that expands to show different project categories.", 4),
-    section("services", "Services", "Your specialities — curtains, wallpaper, flooring, blinds, etc.", 0),
-    section("shop", "Shop", "Product/material showcase section.", 6),
+    // Hero's autoplay slider cycles through all 8 `featured` projects.
+    section("hero", "Hero", "Your homepage's opening section — rotating slider through your featured projects.", 8),
+    // HomeAbout.jsx hardcodes exactly one image (sofa-framed-art.jpg).
+    section("about", "About (Studio Decor story)", "Who you are, your studio's story and specialities.", 1),
+    // Same 8 `featured` projects as the hero, shown as expanding panels.
+    section("expanding_works", "Expanding Works (interactive project showcase)", "The interactive panel that expands to show different project categories.", 8),
+    // HomeServices.jsx has 3 service cards, each with its own image.
+    section("services", "Services", "Your specialities — curtains, wallpaper, flooring, blinds, etc.", 3),
+    // HomeShop.jsx shows 4 picks (curtain, wallpaper, wooden flooring, sofa fabric).
+    section("shop", "Shop", "Product/material showcase section.", 4),
     section("contact", "Contact", "Address, phone, WhatsApp, map, socials.", 0),
   ];
 }
